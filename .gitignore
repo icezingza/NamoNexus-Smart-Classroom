@@ -24,3 +24,7 @@ stress_test_*.json
 .pid
 .DS_Store
 Thumbs.db
+ 
+# GCS key files 
+scripts/.gcs_key.json 
+*.gcs_key.json 
