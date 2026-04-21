@@ -6,6 +6,8 @@ and Phase 6 (Classroom System) into a single orchestrated pipeline.
 Full pipeline flow:
     text input (from STT or direct text)
       ↓
+    [Semantic Cache] Check for similar cached responses (threshold 0.85)
+      ↓
     [Phase 5] EmotionService.detect(perception, transcript)
       → composite_score, smoothed_state
       ↓
@@ -24,6 +26,8 @@ Full pipeline flow:
     [Phase 4] ReasoningService.explain(query, teaching_hint)
       → LLM response (answer, sources)
       ↓
+    Cache Result for future semantic matches
+      ↓
     [Phase 6] ClassroomService.log event + state transition
       ↓
     Optional TTS synthesis
@@ -32,7 +36,11 @@ Full pipeline flow:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+from asyncio import to_thread
+
+from namo_core.services.knowledge.semantic_cache import query_cache
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +68,7 @@ class ClassroomPipeline:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(
+    async def run(
         self,
         query: str,
         transcript: dict | None = None,
@@ -68,7 +76,7 @@ class ClassroomPipeline:
         speak: bool = False,
         voice: str | None = None,
     ) -> dict:
-        """Execute the full classroom interaction pipeline.
+        """Execute the full classroom interaction pipeline (async).
 
         Args:
             query: Student's question or text input (from STT or direct).
@@ -119,7 +127,7 @@ class ClassroomPipeline:
             meta["stages_completed"].append("slide_context")
 
         # ── Stage 4: Knowledge RAG Search ─────────────────────────────────────
-        reasoning_result = self._run_reasoning(query, teaching_hint, slide_context)
+        reasoning_result = await self._run_reasoning(query, teaching_hint, slide_context)
         meta["stages_completed"].append("reasoning")
         logger.debug("reasoning sources: %d", len(reasoning_result.get("sources", [])))
 
@@ -130,7 +138,7 @@ class ClassroomPipeline:
         # ── Stage 6: TTS (optional) ───────────────────────────────────────────
         tts_result: dict | None = None
         if speak:
-            tts_result = self._synthesize(reasoning_result.get("answer", ""), voice)
+            tts_result = await self._synthesize(reasoning_result.get("answer", ""), voice)
             if tts_result:
                 meta["stages_completed"].append("tts")
 
@@ -239,13 +247,26 @@ class ClassroomPipeline:
 
         return "\n\n".join(parts)
 
-    def _run_reasoning(
+    async def _run_reasoning(
         self,
         query: str,
         teaching_hint: str,
         slide_context: dict | None,
     ) -> dict:
-        """Run knowledge search and LLM reasoning with combined context."""
+        """Run knowledge search and LLM reasoning with combined context (async).
+
+        First checks semantic cache for similar cached responses before
+        running full RAG/LLM pipeline. Returns cached response if similarity ≥ threshold.
+        """
+        # ── Semantic Cache: First gate ────────────────────────────────────────
+        cached_response, similarity_score = query_cache.get_cached_response(query)
+        if cached_response is not None:
+            logger.info(
+                f"[Semantic Cache] Returning cached response (similarity: {similarity_score:.2f}) "
+                f"— skipping RAG/LLM pipeline"
+            )
+            return cached_response
+
         if self._knowledge_service is None:
             from namo_core.services.knowledge.knowledge_service import KnowledgeService
             self._knowledge_service = KnowledgeService()
@@ -255,19 +276,20 @@ class ClassroomPipeline:
             self._reasoning_service = ReasoningService()
 
         try:
-            results = self._knowledge_service.search(query)
+            # FAISS search is CPU-bound, run in thread pool
+            results = await to_thread(self._knowledge_service.search, query)
             knowledge_context = self._knowledge_service.context_builder.build(
-                results or self._knowledge_service.search("")
+                results or await to_thread(self._knowledge_service.search, "")
             )
             combined_context = self._build_combined_context(
                 knowledge_context, teaching_hint, slide_context
             )
-            # Inject combined context by calling explain with the pre-built context
-            # Override by using the provider directly with full context
-            response, metadata = self._reasoning_service._run_provider(
-                mode="generate",
-                query=query,
-                context=combined_context,
+            # LLM provider HTTP call is IO-bound, run in thread pool
+            response, metadata = await to_thread(
+                self._reasoning_service._run_provider,
+                "generate",
+                query,
+                combined_context,
             )
             response["context"] = combined_context
             response["sources"] = [
@@ -275,6 +297,11 @@ class ClassroomPipeline:
                 for r in results[:5]
             ]
             response["provider_metadata"] = metadata
+
+            # ── Cache the response for future semantic matches ─────────────────
+            query_cache.add_to_cache(query, response)
+            logger.debug(f"[Semantic Cache] Cached response for: '{query[:80]}'")
+
             return response
         except Exception as exc:
             logger.error("Reasoning failed: %s", exc)
@@ -311,8 +338,8 @@ class ClassroomPipeline:
         except Exception as exc:
             logger.debug("Event logging non-fatal: %s", exc)
 
-    def _synthesize(self, text: str, voice: str | None) -> dict | None:
-        """Synthesize TTS audio for the answer text."""
+    async def _synthesize(self, text: str, voice: str | None) -> dict | None:
+        """Synthesize TTS audio for the answer text (async)."""
         if not text:
             return None
 
@@ -321,7 +348,7 @@ class ClassroomPipeline:
                 from namo_core.modules.tts.synthesizer import SpeechSynthesizer
                 self._tts_synthesizer = SpeechSynthesizer()
 
-            return self._tts_synthesizer.speak(text=text, voice=voice)
+            return await to_thread(self._tts_synthesizer.speak, text=text, voice=voice)
         except Exception as exc:
             logger.warning("TTS synthesis failed (non-fatal): %s", exc)
             return {"status": "error", "error": str(exc)}
@@ -345,8 +372,4 @@ def _empty_result(reason: str) -> dict:
         "teaching_hint": "",
         "tone": "calm",
         "student_state": "attentive",
-        "slide_context": None,
-        "reasoning": None,
-        "tts": None,
-        "pipeline_meta": {"stages_completed": [], "note": reason},
-    }
+        "slide_

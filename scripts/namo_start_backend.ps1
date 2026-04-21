@@ -1,7 +1,8 @@
 # namo_start_backend.ps1 — Start Backend with PID Tracking
-$projectDir = "C:\Users\icezi\Downloads\Github repo\namo_core_project"
+# Resolve project root dynamically — works regardless of install location
+$projectDir = Split-Path -Parent $PSScriptRoot
 $backendDir = "$projectDir\backend"
-$pidFile = "$projectDir\.pid"
+$pidFile = "$projectDir\logs\.pid"
 $venvPath = "$projectDir\.venv\Scripts\activate.ps1"
 
 Write-Host "[*] Starting Namo Core Backend..." -ForegroundColor Cyan

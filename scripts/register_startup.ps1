@@ -1,5 +1,6 @@
 # Register Namo Core as Windows Startup Task (runs at logon)
-$scriptPath = "C:\Users\icezi\Downloads\Github repo\namo_core_project\scripts\namo_start_all.ps1"
+# Resolve path dynamically — works regardless of install location
+$scriptPath = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts\namo_start_all.ps1"
 
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `

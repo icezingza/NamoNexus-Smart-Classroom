@@ -11,11 +11,14 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
+import time
 import wave
+from asyncio import to_thread
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from namo_core.config.settings import get_settings
@@ -25,6 +28,8 @@ from namo_core.modules.speech.transcriber import (
 )
 from namo_core.modules.tts.synthesizer import SpeechSynthesizer
 from namo_core.services.integration.classroom_pipeline import get_pipeline
+from namo_core.services.knowledge.semantic_cache import query_cache
+from namo_core.utils.text_formatter import format_diarization
 from namo_core.services.reasoning.reasoner import ReasoningService
 
 logger = logging.getLogger(__name__)
@@ -34,6 +39,111 @@ router = APIRouter(prefix="/nexus", tags=["nexus"])
 # ─────────────────────────────────────────────────────────────────────────────
 # Audio utilities (route-layer only — ไม่แก้ modules ใดๆ)
 # ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB Logging Utility (Background Task)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _log_event_bg(
+    session_id: str,
+    query: str,
+    response: str,
+    emotion: str,
+    latency: float,
+    source: str,
+):
+    """Background task สำหรับบันทึก EventLog ลง Database โดยไม่บล็อก API (Phase 12)"""
+    try:
+        from namo_core.database.core import SessionLocal
+        from namo_core.database.models import EventLog
+
+        db = SessionLocal()
+        try:
+            log = EventLog(
+                session_id=session_id,
+                event_type=source,
+                content=query,
+                response=response,
+                emotion_state=emotion,
+                latency_ms=latency,
+            )
+            db.add(log)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.error("Failed to write EventLog to DB: %s", exc)
+
+
+def _dispatch_bg_log(
+    response: dict,
+    query: str,
+    session_id: str,
+    source: str,
+    background_tasks: BackgroundTasks,
+    latency: float | None = None,
+):
+    """Helper สำหรับดึงค่าจาก response ไปลง BackgroundTask (ลด Redundancy)"""
+    bg_emotion = (
+        response.get("emotion", {}).get("smoothed_state", "unknown")
+        if isinstance(response.get("emotion"), dict)
+        else "unknown"
+    )
+    bg_response = (
+        response.get("reasoning", {}).get("answer", "")
+        if isinstance(response.get("reasoning"), dict)
+        else str(response.get("reasoning") or "")
+    )
+    bg_latency = (
+        latency
+        if latency is not None
+        else response.get("pipeline_meta", {}).get("total_ms", 0.0)
+    )
+
+    background_tasks.add_task(
+        _log_event_bg,
+        session_id=session_id,
+        query=query,
+        response=bg_response,
+        emotion=bg_emotion,
+        latency=bg_latency,
+        source=source,
+    )
+
+
+def _check_semantic_cache(
+    query: str,
+    session_id: str,
+    speak: bool,
+    settings: any,
+    input_mode: str,
+    background_tasks: BackgroundTasks,
+) -> dict | None:
+    """ตรวจสอบ Semantic Cache และจัดการ Log กรณี Hit"""
+    cached_result, similarity = query_cache.get_cached_response(query)
+    if cached_result and similarity >= 0.90:
+        logger.info(
+            f"[CACHE HIT] Semantic cache hit for query '{query}' with similarity {similarity:.2f}"
+        )
+        cached_result.setdefault("pipeline_meta", {})
+        cached_result["pipeline_meta"]["source"] = "semantic_cache"
+        cached_result["pipeline_meta"]["similarity"] = similarity
+        cached_result["pipeline_meta"]["tts_requested"] = speak
+        cached_result["pipeline_meta"]["tts_enabled"] = settings.enable_tts
+        cached_result["pipeline_meta"]["input_mode"] = input_mode
+
+        _dispatch_bg_log(
+            cached_result,
+            query,
+            session_id,
+            "semantic_cache",
+            background_tasks,
+            latency=0.0,
+        )
+        return cached_result
+    return None
+
 
 _TARGET_SAMPLE_RATE = 16_000  # Whisper expects 16kHz
 
@@ -151,7 +261,8 @@ def _audio_to_pcm16(audio_bytes: bytes) -> tuple[bytes, int]:
 
 
 @router.post("/voice-chat")
-def voice_chat(
+async def voice_chat(
+    background_tasks: BackgroundTasks,
     audio: UploadFile = File(
         ...,
         description="ไฟล์เสียง (WAV PCM16 16kHz แนะนำ; รองรับ MP3/OGG หาก soundfile ติดตั้งอยู่)",
@@ -163,6 +274,10 @@ def voice_chat(
     speak: bool = Query(
         default=True,
         description="หาก True จะสังเคราะห์เสียงตอบกลับด้วย TTS (Edge-TTS)",
+    ),
+    session_id: str = Query(
+        default="DEMO_SESSION_001",
+        description="Session ID สำหรับบันทึก EventLog",
     ),
 ) -> dict:
     """NamoNexus Loop — pipeline เสียงครบวงจร (Phase 4).
@@ -195,7 +310,7 @@ def voice_chat(
 
     # ── Step 1: Read uploaded audio bytes ─────────────────────────────────────
     try:
-        audio_bytes = audio.file.read()
+        audio_bytes = await audio.read()
     except Exception as exc:
         logger.error("Failed to read uploaded audio file '%s': %s", audio.filename, exc)
         raise HTTPException(
@@ -238,9 +353,10 @@ def voice_chat(
             logger.debug("Using MockSpeechTranscriber (provider='%s')", provider_name)
             transcriber = MockSpeechTranscriber()
 
-        transcript_result = transcriber.transcribe_pcm16(
-            audio_bytes=pcm16_bytes,
-            sample_rate=sample_rate,
+        transcript_result = await to_thread(
+            transcriber.transcribe_pcm16,
+            pcm16_bytes,
+            sample_rate,
         )
         logger.info(
             "STT result: provider=%s text='%.80s' confidence=%.2f",
@@ -282,36 +398,28 @@ def voice_chat(
         }
 
     # ── Phase 12: Apply Speaker Diarization formatting for LLM ────────────────
-    diarization = transcript_result.get("diarization", [])
-    if diarization:
-        speaker_blocks = []
-        current_speaker = None
-        current_words = []
-        for item in diarization:
-            spk = item.get("speaker_tag")
-            word = item.get("word", "")
-            if spk != current_speaker:
-                if current_speaker is not None:
-                    speaker_blocks.append(
-                        f"[ผู้พูดที่ {current_speaker}]: {''.join(current_words).strip()}"
-                    )
-                current_speaker = spk
-                current_words = [word]
-            else:
-                current_words.append(word)
-        if current_speaker is not None:
-            speaker_blocks.append(
-                f"[ผู้พูดที่ {current_speaker}]: {''.join(current_words).strip()}"
-            )
+    if diarization_data := transcript_result.get("diarization", []):
+        if formatted_text := format_diarization(diarization_data):
+            query_text = formatted_text
+            logger.info("Diarization applied. Formatted query:\n%s", query_text)
 
-        query_text = "\n".join(speaker_blocks)
-        query_text += "\n\n(System Note: วิเคราะห์บริบทแยกแยะครูกับนักเรียนจากบทสนทนานี้และให้คำตอบที่เหมาะสม)"
-        logger.info("Diarization applied. Formatted query:\n%s", query_text)
+    # ── Phase 14: Semantic Cache Check สำหรับเสียง ────────────────────────────
+    if cache_hit := _check_semantic_cache(
+        query_text, session_id, speak, settings, "voice", background_tasks
+    ):
+        cache_hit["transcript"] = {
+            "text": query_text,
+            "confidence": transcript_result.get("confidence", 0.0),
+            "language": transcript_result.get("language", settings.speech_language),
+            "status": "ok",
+            "provider": transcriber.name,
+        }
+        return cache_hit
 
     # ── Step 4–6: ClassroomPipeline (Emotion + Slide context + RAG + LLM + TTS) ──
     # Phase 7 Integration: delegate to ClassroomPipeline for unified processing
     try:
-        pipeline_result = get_pipeline().run(
+        pipeline_result = await get_pipeline().run(
             query=query_text,
             transcript={
                 "text": raw_text,
@@ -334,7 +442,7 @@ def voice_chat(
         ) from exc
 
     # ── Compose final response ────────────────────────────────────────────────
-    return {
+    response = {
         "transcript": {
             "text": query_text,
             "confidence": transcript_result.get("confidence", 0.0),
@@ -359,6 +467,14 @@ def voice_chat(
         },
     }
 
+    query_cache.add_to_cache(query_text, response)
+
+    _dispatch_bg_log(
+        response, query_text, session_id, "voice_pipeline", background_tasks
+    )
+
+    return response
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 7: Text-based endpoints (no audio required)
@@ -377,11 +493,16 @@ class TextChatRequest(BaseModel):
         le=1.0,
         description="Optional vision attention signal [0.0–1.0]",
     )
+    session_id: str = Field(
+        default="DEMO_SESSION_001",
+        description="Session ID สำหรับบันทึก EventLog",
+    )
 
 
 @router.post("/text-chat")
-def text_chat(
+async def text_chat(
     payload: TextChatRequest,
+    background_tasks: BackgroundTasks,
     speak: bool = Query(default=False, description="Synthesise TTS response"),
     voice: str | None = Query(default=None, description="TTS voice override"),
 ) -> dict:
@@ -406,16 +527,24 @@ def text_chat(
         Full pipeline result dict identical in shape to /nexus/voice-chat
     """
     settings = get_settings()
+    query = payload.text.strip()
 
-    result = get_pipeline().run(
-        query=payload.text.strip(),
-        transcript={"text": payload.text.strip(), "confidence": 0.85},
+    # Phase 14: Semantic Cache Check
+    if cache_hit := _check_semantic_cache(
+        query, payload.session_id, speak, settings, "text", background_tasks
+    ):
+        return cache_hit
+
+    result = await get_pipeline().run(
+        query=query,
+        transcript={"text": query, "confidence": 0.85},
         perception={"attention_score": payload.attention_score, "engagement": "active"},
         speak=speak and settings.enable_tts,
         voice=voice,
     )
 
-    return {
+    # Construct the full response and cache it
+    response = {
         "query": result["query"],
         "reasoning": result.get("reasoning"),
         "emotion": result.get("emotion"),
@@ -431,11 +560,36 @@ def text_chat(
             "tts_enabled": settings.enable_tts,
         },
     }
+    query_cache.add_to_cache(query, response)
+
+    bg_emotion = (
+        response.get("emotion", {}).get("smoothed_state", "unknown")
+        if isinstance(response.get("emotion"), dict)
+        else "unknown"
+    )
+    bg_response = (
+        response.get("reasoning", {}).get("answer", "")
+        if isinstance(response.get("reasoning"), dict)
+        else str(response.get("reasoning") or "")
+    )
+    bg_latency = response.get("pipeline_meta", {}).get("total_ms", 0.0)
+    background_tasks.add_task(
+        _log_event_bg,
+        session_id=payload.session_id,
+        query=query,
+        response=bg_response,
+        emotion=bg_emotion,
+        latency=bg_latency,
+        source="text_pipeline",
+    )
+
+    return response
 
 
 @router.post("/classroom-loop")
-def classroom_loop(
+async def classroom_loop(
     payload: TextChatRequest,
+    background_tasks: BackgroundTasks,
     speak: bool = Query(default=True, description="Synthesise TTS response"),
     voice: str | None = Query(default=None, description="TTS voice override"),
 ) -> dict:
@@ -452,16 +606,24 @@ def classroom_loop(
     Returns the same shape as /nexus/text-chat.
     """
     settings = get_settings()
+    query = payload.text.strip()
 
-    result = get_pipeline().run(
-        query=payload.text.strip(),
-        transcript={"text": payload.text.strip(), "confidence": 0.85},
+    # Phase 14: Semantic Cache Check
+    if cache_hit := _check_semantic_cache(
+        query, payload.session_id, speak, settings, "classroom-loop", background_tasks
+    ):
+        return cache_hit
+
+    result = await get_pipeline().run(
+        query=query,
+        transcript={"text": query, "confidence": 0.85},
         perception={"attention_score": payload.attention_score, "engagement": "active"},
         speak=speak and settings.enable_tts,
         voice=voice,
     )
 
-    return {
+    # Construct the full response and cache it
+    response = {
         "query": result["query"],
         "reasoning": result.get("reasoning"),
         "emotion": result.get("emotion"),
@@ -477,3 +639,22 @@ def classroom_loop(
             "tts_enabled": settings.enable_tts,
         },
     }
+    query_cache.add_to_cache(query, response)
+
+    bg_emotion = (
+        response.get("emotion", {}).get("smoothed_state", "unknown")
+        if isinstance(response.get("emotion"), dict)
+        else "unknown"
+    )
+    bg_response = (
+        response.get("reasoning", {}).get("answer", "")
+        if isinstance(response.get("reasoning"), dict)
+        else str(response.get("reasoning") or "")
+    )
+    bg_latency = response.get("pipeline_meta", {}).get("total_ms", 0.0)
+    background_tasks.add_task(
+        _log_event_bg,
+        session_id=payload.session_id,
+        query=query,
+        response=bg_response,
+        emotion=b

@@ -13,6 +13,7 @@ Environment (set in .env or shell):
     GCS_BUCKET                     = bucket name (default: namo-classroom-models)
     NAMO_PROJECT_ROOT              = project root (default: auto-detected)
 """
+
 import os, sys, hashlib, time
 from pathlib import Path
 from datetime import datetime, timezone
@@ -31,25 +32,45 @@ except ImportError:
 
 # --- Config ------------------------------------------------------------------
 BUCKET_NAME = os.getenv("GCS_BUCKET", "namo-classroom-models")
-KEY_FILE    = os.getenv(
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    r"C:\Users\icezi\namo_core_key.json"   # local path -- never commit this file
-)
+KEY_FILE = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 # Auto-detect project root (2 levels up from scripts/)
-SCRIPT_DIR   = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = Path(os.getenv("NAMO_PROJECT_ROOT", str(SCRIPT_DIR.parent)))
-DOWNLOADS_ROOT = Path(r"C:\Users\icezi")   # for loose JSONL files
+DOWNLOADS_ROOT = (
+    Path(os.getenv("USERPROFILE", "")) / "Downloads"
+)  # for loose JSONL files
 
 # --- Files to upload ---------------------------------------------------------
 # (local_path, gcs_path)
 STATIC_FILES = [
-    (PROJECT_ROOT / "backend" / "namo_core" / "knowledge" / "tripitaka" / "tripitaka_index.faiss",
-     "models/tripitaka_index.faiss"),
-    (PROJECT_ROOT / "backend" / "namo_core" / "knowledge" / "tripitaka" / "tripitaka_metadata.json",
-     "models/tripitaka_metadata.json"),
-    (PROJECT_ROOT / "backend" / "namo_core" / "knowledge" / "tripitaka" / "ingestion_state.json",
-     "models/ingestion_state.json"),
+    (
+        PROJECT_ROOT
+        / "backend"
+        / "namo_core"
+        / "knowledge"
+        / "tripitaka"
+        / "tripitaka_index.faiss",
+        "models/tripitaka_index.faiss",
+    ),
+    (
+        PROJECT_ROOT
+        / "backend"
+        / "namo_core"
+        / "knowledge"
+        / "tripitaka"
+        / "tripitaka_metadata.json",
+        "models/tripitaka_metadata.json",
+    ),
+    (
+        PROJECT_ROOT
+        / "backend"
+        / "namo_core"
+        / "knowledge"
+        / "tripitaka"
+        / "ingestion_state.json",
+        "models/ingestion_state.json",
+    ),
 ]
 
 # JSONL knowledge chunks (may be in project or Downloads)
@@ -57,6 +78,7 @@ JSONL_SOURCES = [
     PROJECT_ROOT / "backend" / "namo_core" / "knowledge" / "tripitaka",
     DOWNLOADS_ROOT,
 ]
+
 
 # --- Helpers -----------------------------------------------------------------
 def md5_file(path: Path, chunk_size: int = 1 << 20) -> str:
@@ -67,10 +89,14 @@ def md5_file(path: Path, chunk_size: int = 1 << 20) -> str:
             h.update(data)
     return h.hexdigest()
 
+
 def upload_file(bucket, local: Path, remote: str, dry_run: bool = False) -> dict:
     """Upload a single file to GCS with progress logging."""
     size_mb = local.stat().st_size / (1024 * 1024)
-    print(f"  UP  {local.name:50s}  {size_mb:7.1f} MB  ->  gs://{BUCKET_NAME}/{remote}", flush=True)
+    print(
+        f"  UP  {local.name:50s}  {size_mb:7.1f} MB  ->  gs://{BUCKET_NAME}/{remote}",
+        flush=True,
+    )
 
     if dry_run:
         return {"status": "dry_run", "local": str(local), "remote": remote}
@@ -82,16 +108,17 @@ def upload_file(bucket, local: Path, remote: str, dry_run: bool = False) -> dict
     # Write metadata
     blob.metadata = {
         "source_file": local.name,
-        "md5":         md5_file(local),
+        "md5": md5_file(local),
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        "size_bytes":  str(local.stat().st_size),
+        "size_bytes": str(local.stat().st_size),
     }
     blob.patch()
 
     elapsed = time.time() - t0
-    speed   = size_mb / elapsed if elapsed > 0 else 0
+    speed = size_mb / elapsed if elapsed > 0 else 0
     print(f"     DONE  ({elapsed:.1f}s, {speed:.1f} MB/s)", flush=True)
     return {"status": "ok", "remote": remote, "size_mb": round(size_mb, 2)}
+
 
 def ensure_bucket(client) -> object:
     """Create bucket if it doesn't exist."""
@@ -104,19 +131,23 @@ def ensure_bucket(client) -> object:
         print(f"[OK] Bucket gs://{BUCKET_NAME} created (asia-southeast1)", flush=True)
     return bucket
 
+
 # --- Main --------------------------------------------------------------------
 def main(dry_run: bool = "--dry-run" in sys.argv):
-    print(f"\n{'='*60}", flush=True)
+    print(f"\n{'=' * 60}", flush=True)
     print(f"  Namo Core GCS Upload", flush=True)
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", flush=True)
     print(f"  Bucket  : gs://{BUCKET_NAME}", flush=True)
     print(f"  Key     : {KEY_FILE}", flush=True)
     print(f"  Root    : {PROJECT_ROOT}", flush=True)
     print(f"  DryRun  : {dry_run}", flush=True)
-    print(f"{'='*60}\n", flush=True)
+    print(f"{'=' * 60}\n", flush=True)
 
-    if not Path(KEY_FILE).exists():
-        print(f"[ERR] Key file not found: {KEY_FILE}", flush=True)
+    if not KEY_FILE or not Path(KEY_FILE).exists():
+        print(
+            f"[ERR] Key file not found. Set GOOGLE_APPLICATION_CREDENTIALS environment variable.",
+            flush=True,
+        )
         sys.exit(1)
 
     client = storage.Client.from_service_account_json(KEY_FILE)
@@ -143,13 +174,9 @@ def main(dry_run: bool = "--dry-run" in sys.argv):
         print("  No .jsonl files found in search paths", flush=True)
 
     # Summary
-    ok    = sum(1 for r in results if r.get("status") in ("ok", "dry_run"))
+    ok = sum(1 for r in results if r.get("status") in ("ok", "dry_run"))
     total = len(results)
     total_mb = sum(r.get("size_mb", 0) for r in results)
-    print(f"\n{'='*60}", flush=True)
-    print(f"  Upload complete: {ok}/{total} files ({total_mb:.1f} MB total)", flush=True)
-    print(f"  Browse: https://console.cloud.google.com/storage/browser/{BUCKET_NAME}", flush=True)
-    print(f"{'='*60}\n", flush=True)
-
-if __name__ == "__main__":
-    main()
+    print(f"\n{'=' * 60}", flush=True)
+    print(
+        f"  Upload comple

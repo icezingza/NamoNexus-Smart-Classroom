@@ -9,6 +9,7 @@ from namo_core.api.routes.knowledge import router as knowledge_router
 from namo_core.api.routes.lessons import router as lessons_router
 from namo_core.api.routes.nexus import router as nexus_router
 from namo_core.api.routes.reasoning import router as reasoning_router
+from namo_core.api.routes.semantic_cache import router as semantic_cache_router
 from namo_core.api.routes.speech import router as speech_router
 from namo_core.api.routes.status import router as status_router
 from namo_core.api.routes.tts import router as tts_router
@@ -16,6 +17,9 @@ from namo_core.api.routes.ws import router as ws_router
 from namo_core.api.routes.feedback import router as feedback_router
 from namo_core.api.routes.auth_routes import router as auth_routes_router
 from namo_core.config.settings import get_settings
+from namo_core.services.knowledge.cache_initialization import initialize_semantic_cache
+from namo_core.database.core import SessionLocal, engine, Base
+import namo_core.database.models  # noqa: F401 — ensure all models are registered before create_all
 
 
 def create_app() -> FastAPI:
@@ -52,6 +56,27 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
     app.include_router(feedback_router)
     app.include_router(auth_routes_router)
+    app.include_router(semantic_cache_router)
+
+    # Startup event: Create SQLite tables + Initialize semantic cache
+    @app.on_event("startup")
+    def startup_db_and_cache():
+        import logging
+        _logger = logging.getLogger(__name__)
+        # Phase 12: auto-create all tables (idempotent — safe to run on every start)
+        try:
+            Base.metadata.create_all(bind=engine)
+            _logger.info("[DB] SQLite tables created/verified OK")
+        except Exception as exc:
+            _logger.error("[DB] Failed to create tables: %s", exc)
+
+        try:
+            db = SessionLocal()
+            initialize_semantic_cache(db)
+            db.close()
+        except Exception as exc:
+            _logger.warning("Failed to initialize semantic cache: %s", exc)
+
     return app
 
 

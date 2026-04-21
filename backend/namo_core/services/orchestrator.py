@@ -12,6 +12,9 @@ import logging
 import time
 from pathlib import Path
 
+from namo_core.config.settings import get_settings
+from namo_core.utils.text_formatter import format_diarization
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,19 +66,26 @@ class OrchestratorSingleton:
     @property
     def stt(self):
         if self._stt is None:
+            settings = get_settings()
+            if not settings.enable_speech:
+                logger.info("[Lazy-Load] Speech module is disabled by settings.")
+                return None
+
             logger.info("[Lazy-Load] Loading Whisper STT...")
             t0 = time.perf_counter()
             try:
                 from namo_core.modules.speech.transcriber import FasterWhisperTranscriber
 
-                self._stt = FasterWhisperTranscriber(model_name="base", language="th")
+                self._stt = FasterWhisperTranscriber(
+                    model_name=settings.speech_model, language=settings.speech_language
+                )
                 logger.info(f"[Lazy-Load] STT loaded in {time.perf_counter() - t0:.2f}s")
             except Exception as exc:
                 logger.warning("Failed to load STT: %s", exc)
                 self._stt = None
         return self._stt
 
-    def initialize(self, stt_model: str = "tiny", language: str = "th"):
+    def initialize(self):
         """No-op method kept for backward compatibility.
         All components use lazy loading via properties.
         Models are loaded on-demand when first accessed.
@@ -88,32 +98,23 @@ class OrchestratorSingleton:
         text: str | None = None,
         audio_path: str | None = None,
         session_id: str = "default",
-        voice: str = "th-TH-PremwadeeNeural",
-        stt_model: str = "tiny",
-        language: str = "th",
+        voice: str | None = None,
     ) -> dict:
+        settings = get_settings()
+        tts_voice = voice or settings.tts_voice
+
         # Initialize heavily-loaded models lazily upon first request
-        self.initialize(stt_model=stt_model, language=language)
+        self.initialize()
 
         t_total = time.perf_counter()
         timings: dict[str, float] = {}
         stt_text = text or ""
 
         # ── 1. STT ────────────────────────────────────────────────────────
-        if not stt_text and audio_path:
+        if not stt_text and audio_path and self.stt:
             t0 = time.perf_counter()
             try:
-                if self.stt:
-                    stt_result = self.stt.transcribe_file(audio_path)
-                else:
-                    from namo_core.modules.speech.transcriber import (
-                        FasterWhisperTranscriber,
-                    )
-
-                    stt = FasterWhisperTranscriber(
-                        model_name=stt_model, language=language
-                    )
-                    stt_result = stt.transcribe_file(audio_path)
+                stt_result = self.stt.transcribe_file(audio_path)
                 stt_text = stt_result.get("text", "")
             except Exception as exc:
                 logger.warning("STT failed: %s", exc)
@@ -121,73 +122,45 @@ class OrchestratorSingleton:
             timings["stt_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
         if not stt_text:
+            if audio_path and not self.stt:
+                logger.warning("STT service is not available. Cannot process audio.")
+
             return {"error": "No input text or STT result", "latency_ms": {}}
 
         raw_stt_text = stt_text
 
         # ── Phase 12: Speaker Diarization Formatting ──────────────────────────
-        if "stt_result" in locals() and stt_result.get("diarization"):
-            diarization = stt_result["diarization"]
-            speaker_blocks = []
-            current_speaker = None
-            current_words = []
-            for item in diarization:
-                spk = item.get("speaker_tag")
-                word = item.get("word", "")
-                if spk != current_speaker:
-                    if current_speaker is not None:
-                        speaker_blocks.append(f"[ผู้พูดที่ {current_speaker}]: {''.join(current_words).strip()}")
-                    current_speaker = spk
-                    current_words = [word]
-                else:
-                    current_words.append(word)
-            if current_speaker is not None:
-                speaker_blocks.append(f"[ผู้พูดที่ {current_speaker}]: {''.join(current_words).strip()}")
-            
-            stt_text = "\n".join(speaker_blocks)
-            stt_text += "\n\n(System Note: วิเคราะห์บริบทแยกแยะครูกับนักเรียนจากบทสนทนานี้และให้คำตอบที่เหมาะสม)"
+        if "stt_result" in locals() and (diarization_data := stt_result.get("diarization")):
+            if formatted_text := format_diarization(diarization_data):
+                stt_text = formatted_text
 
         # ── 2. Emotion Detection ──────────────────────────────────────────
         t0 = time.perf_counter()
-        try:
-            from namo_core.engines.empathy.engine import EmpathyEngine
-
-            if self.emotion_analyzer:
+        emotion_result = {"emotion": "neutral", "confidence": 0.5}
+        teaching_hint = ""
+        if self.emotion_analyzer:
+            try:
+                from namo_core.engines.empathy.engine import EmpathyEngine
                 emotion_result = self.emotion_analyzer.analyze(raw_stt_text)
-            else:
-                from namo_core.modules.emotion.detector import TextEmotionAnalyzer
-
-                emotion_result = TextEmotionAnalyzer().analyze(raw_stt_text)
-            teaching_hint = EmpathyEngine.modifier_from_text_emotion(
-                emotion_result["emotion"]
-            )
-        except Exception as exc:
-            logger.warning("Emotion failed: %s", exc)
-            emotion_result = {"emotion": "neutral", "confidence": 0.5}
-            teaching_hint = ""
+                teaching_hint = EmpathyEngine.modifier_from_text_emotion(emotion_result["emotion"])
+            except Exception as exc:
+                logger.warning("Emotion analysis failed: %s", exc)
         timings["emotion_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
         # ── 3. RAG + Reasoning ────────────────────────────────────────────
         t0 = time.perf_counter()
-        try:
-            if self.reasoner:
+        answer = "[reasoning service unavailable]"
+        if self.reasoner:
+            try:
                 reason = self.reasoner.chat(
                     messages=[{"role": "user", "content": stt_text}],
                     teaching_hint=teaching_hint,
                     session_id=session_id,
                 )
-            else:
-                from namo_core.api.routes.reasoning import get_reasoner
-
-                reason = get_reasoner().chat(
-                    messages=[{"role": "user", "content": stt_text}],
-                    teaching_hint=teaching_hint,
-                    session_id=session_id,
-                )
-            answer = reason.get("answer", "")
-        except Exception as exc:
-            logger.error("Reasoning failed: %s", exc)
-            answer = f"[reasoning error: {exc}]"
+                answer = reason.get("answer", "")
+            except Exception as exc:
+                logger.error("Reasoning failed: %s", exc)
+                answer = f"[reasoning error: {exc}]"
         timings["reasoning_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
         # ── 4. TTS ────────────────────────────────────────────────────────
@@ -199,9 +172,8 @@ class OrchestratorSingleton:
                 EdgeTTSProvider,
             )
 
-            tts_result = EdgeTTSProvider(default_voice=voice).synthesize(
-                answer, voice=voice
-            )
+            tts_provider = EdgeTTSProvider(default_voice=tts_voice)
+            tts_result = tts_provider.synthesize(answer, voice=tts_voice)
             audio_b64 = tts_result.get("audio_base64")
             audio_fmt = tts_result.get("audio_format", "mp3")
         except Exception as exc:
@@ -230,9 +202,7 @@ def run_full_loop(
     text: str | None = None,
     audio_path: str | None = None,
     session_id: str = "default",
-    voice: str = "th-TH-PremwadeeNeural",
-    stt_model: str = "tiny",
-    language: str = "th",
+    voice: str | None = None,
 ) -> dict:
     """รัน Full Pipeline: (Audio|Text) → STT → Emotion → Reasoner → TTS"""
     return orchestrator.run_full_loop(
@@ -240,6 +210,4 @@ def run_full_loop(
         audio_path=audio_path,
         session_id=session_id,
         voice=voice,
-        stt_model=stt_model,
-        language=language,
     )

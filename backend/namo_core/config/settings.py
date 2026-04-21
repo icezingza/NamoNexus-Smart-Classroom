@@ -34,8 +34,18 @@ class Settings(BaseSettings):
     reasoning_api_key: str | None = None
     system_secret: str = "NamoSovereignToken2026"
 
+    # Database Configuration (Phase 12)
+    database_url: str = "sqlite:///./namo_classroom.db"
+
+    # Security Configuration (Phase 13)
+    jwt_secret_key: str = "CHANGE_ME"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 1440
+    admin_username: str = "teacher"
+    admin_password: str = "password123"
+
     # Speech-to-text configuration
-    speech_provider: str = "mock"       # "mock" | "whisper-local"
+    speech_provider: str = "mock"  # "mock" | "whisper-local"
     speech_model: str = "tiny"
     speech_language: str | None = "th"
     speech_sample_rate: int = 16000
@@ -49,9 +59,9 @@ class Settings(BaseSettings):
     speech_vad_threshold: float = 0.015
 
     # TTS configuration
-    tts_provider: str = "mock"           # "mock" | "edge-tts" | "openai"
-    tts_voice: str = "demo-th"           # default voice ID
-    tts_api_key: str | None = None       # required for openai provider
+    tts_provider: str = "mock"  # "mock" | "edge-tts" | "openai"
+    tts_voice: str = "demo-th"  # default voice ID
+    tts_api_key: str | None = None  # required for openai provider
     tts_api_base_url: str | None = None  # optional override
 
     # ------------------------------------------------------------------
@@ -66,7 +76,7 @@ class Settings(BaseSettings):
     # Computer-vision / attention module (VisionAnalyzer)
     enable_vision: bool = True
     # Hardware-connected device mode; set False to force mock devices
-    enable_real_devices: bool = False   # safe default: mock only
+    enable_real_devices: bool = False  # safe default: mock only
     # LLM-based intent classification in NamoNexus (IntentClassifier)
     enable_llm_intent: bool = True
     # Knowledge retrieval pipeline (KnowledgeService)
@@ -80,20 +90,21 @@ class Settings(BaseSettings):
     # Hardware/UI integrations for classroom
     enable_classroom_control: bool = True
 
-
     @property
     def origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+        return [
+            origin.strip()
+            for origin in self.allowed_origins.split(",")
+            if origin.strip()
+        ]
 
     @property
     def knowledge_root(self) -> Path:
         return Path(__file__).resolve().parents[1] / "knowledge"
 
-
     @property
     def data_root(self) -> Path:
         return Path(__file__).resolve().parents[1] / "data"
-
 
     @property
     def classroom_state_path(self) -> Path:

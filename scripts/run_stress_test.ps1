@@ -4,7 +4,8 @@ param(
     [int]$Requests = 50
 )
 
-$projectDir = "C:\Users\icezi\Downloads\Github repo\namo_core_project"
+# Resolve project root dynamically
+$projectDir = Split-Path -Parent $PSScriptRoot
 $venvPath = "$projectDir\.venv\Scripts\activate.ps1"
 $testScript = "$projectDir\tests\test_orchestrator_stress.py"
 

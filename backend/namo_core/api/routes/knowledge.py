@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query
 
 from namo_core.services.knowledge.knowledge_service import KnowledgeService
 from namo_core.services.knowledge.tripitaka_retriever import (

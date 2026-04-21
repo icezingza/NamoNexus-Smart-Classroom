@@ -24,8 +24,8 @@ def login(credentials: LoginRequest):
 
     # TODO: ใน Phase 12 สามารถปรับให้เชื่อมกับ Database เพื่อเช็ค Hash ของรหัสผ่านได้
     # เบื้องต้นใช้ค่าที่กำหนดไว้สำหรับให้ครูใช้งานก่อน
-    valid_username = "teacher"
-    valid_password = "password123"
+    valid_username = settings.admin_username
+    valid_password = settings.admin_password
 
     if credentials.username != valid_username or credentials.password != valid_password:
         raise HTTPException(status_code=401, detail="ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
