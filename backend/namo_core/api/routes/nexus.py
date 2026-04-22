@@ -657,4 +657,9 @@ async def classroom_loop(
         session_id=payload.session_id,
         query=query,
         response=bg_response,
-        emotion=b
+        emotion=bg_emotion,
+        latency=bg_latency,
+        source="classroom_loop",
+    )
+
+    return response

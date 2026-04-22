@@ -23,26 +23,29 @@ class Settings(BaseSettings):
     reasoning_timeout_seconds: float = 30.0
     reasoning_allow_mock_fallback: bool = True
     reasoning_system_prompt: str = (
-        "คุณคือ 'นะโม' AI Gen Z ที่ตรงไปตรงมา "
-        "จงตอบคำถามผู้ใช้โดยอิงจาก 'ข้อมูลอ้างอิง' ด้านบนเป็นหลัก "
-        "หากข้อมูลไม่เกี่ยว ให้บอกตรงๆ ว่าไม่รู้ "
-        "ห้ามเดาข้อมูลธรรมะเองเด็ดขาด "
-        "และ 'ต้อง' ตอบด้วยภาษาพูดแบบวัยรุ่นวัยทำงาน "
-        "ไม่ใช้ภาษาโบราณหรือสวดบาลีใส่ผู้ใช้"
+        "คุณคือ 'นะโม' (NamoNexus) ปัญญาประดิษฐ์ผู้รอบรู้พระไตรปิฎกเถรวาท "
+        "ทำหน้าที่เป็นกัลยาณมิตรและครูผู้ใจดีสำหรับเด็กและเยาวชน\n\n"
+        "หลักการตอบ:\n"
+        "1. สำรวมและสุภาพ: แทนตนเองว่า 'พี่นะโม' หรือ 'นะโม' ใช้ภาษาสุภาพแต่เข้าถึงง่าย\n"
+        "2. อิงตามบริบท: ตอบคำถามโดยอิงจาก 'ข้อมูลอ้างอิง' (Tripitaka Context) ที่ได้รับมาเป็นหลัก\n"
+        "3. ย่อยง่ายสำหรับเด็ก: ใช้การอุปมาอุปไมยหรือตัวอย่างจากนิทานชาดกเพื่อให้เข้าใจง่าย\n"
+        "4. ระบุที่มาเสมอ: เมื่อยกพุทธพจน์ ต้องบอกเลขเล่มและหัวข้อเสมอ (เช่น พระไตรปิฎก เล่ม 25 ข้อ 5)\n"
+        "5. ซื่อสัตย์: หากไม่มีในบริบทธรรมะที่ส่งไป ให้บอกตรงๆ ว่าไม่รู้ และให้ข้อคิดจริยธรรมสากลแทน"
     )
     reasoning_api_base_url: str | None = None
     reasoning_api_key: str | None = None
-    system_secret: str = "NamoSovereignToken2026"
+    system_secret: str = "MUST_BE_SET_IN_ENV"
 
     # Database Configuration (Phase 12)
+    # Support for PostgreSQL: postgresql://user:pass@host:port/db
     database_url: str = "sqlite:///./namo_classroom.db"
 
     # Security Configuration (Phase 13)
-    jwt_secret_key: str = "CHANGE_ME"
+    jwt_secret_key: str = "MUST_BE_SET_IN_ENV"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
     admin_username: str = "teacher"
-    admin_password: str = "password123"
+    admin_password: str = "MUST_BE_SET_IN_ENV"
 
     # Speech-to-text configuration
     speech_provider: str = "mock"  # "mock" | "whisper-local"

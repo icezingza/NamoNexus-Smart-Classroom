@@ -20,10 +20,10 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
         self.timeout_seconds = timeout_seconds
         self.system_prompt = system_prompt
 
-    def generate(self, query: str, context: str) -> dict:
+    async def generate(self, query: str, context: str) -> dict:
         """สร้าง Namo-style prompt: system = คาแรคเตอร์, user = ข้อมูลอ้างอิง + คำถาม"""
         user_message = self._build_rag_user_message(query=query, context=context)
-        content = self._request_completion(
+        content = await self._request_completion(
             [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user",   "content": user_message},
@@ -37,7 +37,7 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
             "model":           self.model,
         }
 
-    def chat(self, messages: list[dict], context: str) -> dict:
+    async def chat(self, messages: list[dict], context: str) -> dict:
         """Multi-turn chat: ข้อมูลอ้างอิง inject เข้า system prompt รักษา history"""
         system_content = self.system_prompt
         if context:
@@ -46,7 +46,7 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
         formatted_messages = [{"role": "system", "content": system_content}]
         formatted_messages.extend(messages)
 
-        content = self._request_completion(formatted_messages)
+        content = await self._request_completion(formatted_messages)
         last_query = next(
             (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
         )
@@ -75,21 +75,21 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
             return f"{context}\n\nคำถาม: {query}"
         return f"คำถาม: {query}"
 
-    def _request_completion(self, messages: list[dict]) -> str:
-        response = httpx.post(
-            f"{self.base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": self.model,
-                "messages": messages,
-            },
-            timeout=self.timeout_seconds,
-        )
-        response.raise_for_status()
-        return self._extract_content(response.json())
+    async def _request_completion(self, messages: list[dict]) -> str:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                },
+            )
+            response.raise_for_status()
+            return self._extract_content(response.json())
 
     def _extract_content(self, payload: dict) -> str:
         choices = payload.get("choices") or []

@@ -23,18 +23,24 @@ Endpoints:
 
     GET  /classroom/events            – event log               [Phase 6]
     GET  /classroom/lessons           – available lessons list  [Phase 6]
+    POST /classroom/session/{id}/generate-summary – AI Session Analytics [New Feature]
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from namo_core.modules.classroom.projector_controller import ProjectorController
 from namo_core.modules.classroom.slide_controller import SlideController
 from namo_core.services.classroom.classroom_service import ClassroomService
 from namo_core.services.classroom.slide_content_service import SlideContentService
+from namo_core.database.core import get_db
+from namo_core.database.models import EventLog
+from namo_core.api.routes.reasoning import get_reasoner
 
 router = APIRouter(prefix="/classroom", tags=["classroom"])
 
@@ -58,6 +64,7 @@ class StudentRequest(BaseModel):
 # ------------------------------------------------------------------
 # Session
 # ------------------------------------------------------------------
+
 
 @router.get("/session")
 def classroom_session() -> dict:
@@ -97,6 +104,7 @@ def end_session() -> dict:
 # Slides
 # ------------------------------------------------------------------
 
+
 @router.get("/slide")
 def get_current_slide() -> dict:
     """Return current slide position."""
@@ -134,6 +142,7 @@ def go_to_slide(slide_n: int) -> dict:
 # Projector
 # ------------------------------------------------------------------
 
+
 @router.get("/projector")
 def get_projector_status() -> dict:
     """Return current projector mode and valid modes."""
@@ -152,6 +161,7 @@ def set_projector_mode(mode: str) -> dict:
 # ------------------------------------------------------------------
 # Students
 # ------------------------------------------------------------------
+
 
 @router.post("/student/connect")
 def connect_student(payload: StudentRequest) -> dict:
@@ -181,6 +191,7 @@ def get_students() -> dict:
 # Assistant state
 # ------------------------------------------------------------------
 
+
 @router.post("/assistant/{state}")
 def transition_assistant_state(state: str) -> dict:
     """Transition the assistant state machine to the given state.
@@ -197,9 +208,12 @@ def transition_assistant_state(state: str) -> dict:
 # Events & Lessons
 # ------------------------------------------------------------------
 
+
 @router.get("/events")
 def get_events(
-    n: int = Query(default=20, ge=1, le=200, description="Number of recent events to return"),
+    n: int = Query(
+        default=20, ge=1, le=200, description="Number of recent events to return"
+    ),
 ) -> dict:
     """Return the classroom event log (most recent N events)."""
     return ClassroomService().get_events(n)
@@ -210,3 +224,50 @@ def list_lessons() -> dict:
     """Return all available lessons with slide count."""
     lessons = SlideContentService().list_lessons()
     return {"count": len(lessons), "lessons": lessons}
+
+
+# ------------------------------------------------------------------
+# Analytics (New Feature)
+# ------------------------------------------------------------------
+
+
+@router.post("/session/{session_id}/generate-summary")
+def generate_session_summary(session_id: str, db: Session = Depends(get_db)) -> dict:
+    """
+    [New Feature] AI Session Analytics
+    ประมวลผลข้อมูลตลอดคาบเรียน (ประวัติคำถาม, อารมณ์) เพื่อให้ AI สรุปเป็นรายงานสำหรับครู
+    """
+    events = db.query(EventLog).filter(EventLog.session_id == session_id).all()
+    if not events:
+        raise HTTPException(status_code=404, detail="ไม่พบข้อมูล EventLog สำหรับ Session นี้")
+
+    transcript_data = []
+    emotion_counts = {}
+
+    for e in events:
+        if (
+            e.event_type in ["voice_pipeline", "text_pipeline", "classroom_loop"]
+            and e.content
+        ):
+            transcript_data.append(f"Q: {e.content} -> A: {e.response}")
+        if e.emotion_state:
+            emotion_counts[e.emotion_state] = emotion_counts.get(e.emotion_state, 0) + 1
+
+    prompt = (
+        f"คุณคือผู้เชี่ยวชาญด้านการประเมินการสอน จงสรุปผลการเรียนการสอนจากข้อมูลต่อไปนี้:\n"
+        f"สถิติอารมณ์ความสนใจของนักเรียน (จำนวนครั้ง): {emotion_counts}\n"
+        f"ประวัติการถามตอบในห้องเรียน:\n"
+        + "\n".join(transcript_data[-30:])
+        + "\n\nให้สรุปสั้นๆ 3 หัวข้อ:\n1. ภาพรวมความสนใจ\n2. ประเด็นคำถามหลักที่นักเรียนสงสัย\n3. ข้อเสนอแนะสำหรับครูในคาบถัดไป"
+    )
+
+    ai_result = get_reasoner().explain(
+        prompt, teaching_hint="วิเคราะห์อย่างเป็นกลาง ใช้ภาษาทางการและเข้าใจง่าย"
+    )
+
+    return {
+        "session_id": session_id,
+        "total_interactions": len(transcript_data),
+        "emotion_stats": emotion_counts,
+        "ai_summary": ai_result.get("answer", ""),
+    }

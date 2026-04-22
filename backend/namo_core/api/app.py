@@ -57,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback_router)
     app.include_router(auth_routes_router)
     app.include_router(semantic_cache_router)
+    app.include_router(notebook_router)
 
     # Startup event: Create SQLite tables + Initialize semantic cache
     @app.on_event("startup")
@@ -78,6 +79,10 @@ def create_app() -> FastAPI:
             _logger.warning("Failed to initialize semantic cache: %s", exc)
 
     return app
+
+
+app = create_app()
+rn app
 
 
 app = create_app()

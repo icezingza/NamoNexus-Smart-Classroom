@@ -12,7 +12,7 @@ export interface NamoSettings {
 
 export const DEFAULT_SETTINGS: NamoSettings = {
   mode: "local",
-  localIp: "192.168.0.102",
+  localIp: typeof window !== 'undefined' ? window.location.hostname : "192.168.0.107",
   localPort: "8000",
   tunnelUrl: "https://api.namonexus.com",
   token: "NamoSovereignToken2026",

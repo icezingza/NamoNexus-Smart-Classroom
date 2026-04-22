@@ -372,4 +372,8 @@ def _empty_result(reason: str) -> dict:
         "teaching_hint": "",
         "tone": "calm",
         "student_state": "attentive",
-        "slide_
+        "slide_context": None,
+        "reasoning": None,
+        "tts": None,
+        "pipeline_meta": {"stages_completed": [], "note": reason},
+    }

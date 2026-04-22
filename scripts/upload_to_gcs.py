@@ -45,38 +45,23 @@ DOWNLOADS_ROOT = (
 # (local_path, gcs_path)
 STATIC_FILES = [
     (
-        PROJECT_ROOT
-        / "backend"
-        / "namo_core"
-        / "knowledge"
-        / "tripitaka"
-        / "tripitaka_index.faiss",
-        "models/tripitaka_index.faiss",
+        PROJECT_ROOT / "knowledge" / "tripitaka_main" / "tripitaka_v45.index",
+        "models/tripitaka_v45.index",
     ),
     (
-        PROJECT_ROOT
-        / "backend"
-        / "namo_core"
-        / "knowledge"
-        / "tripitaka"
-        / "tripitaka_metadata.json",
-        "models/tripitaka_metadata.json",
+        PROJECT_ROOT / "knowledge" / "tripitaka_main" / "tripitaka_v45_metadata.json",
+        "models/tripitaka_v45_metadata.json",
     ),
     (
-        PROJECT_ROOT
-        / "backend"
-        / "namo_core"
-        / "knowledge"
-        / "tripitaka"
-        / "ingestion_state.json",
-        "models/ingestion_state.json",
+        PROJECT_ROOT / "knowledge" / "tripitaka_main" / "master_v45_ready.json",
+        "models/master_v45_ready.json",
     ),
 ]
 
-# JSONL knowledge chunks (may be in project or Downloads)
-JSONL_SOURCES = [
-    PROJECT_ROOT / "backend" / "namo_core" / "knowledge" / "tripitaka",
-    DOWNLOADS_ROOT,
+# JSON knowledge sources
+JSON_SOURCES = [
+    PROJECT_ROOT / "knowledge" / "tripitaka_main",
+    PROJECT_ROOT / "knowledge" / "global_library",
 ]
 
 
@@ -163,15 +148,19 @@ def main(dry_run: bool = "--dry-run" in sys.argv):
             print(f"  SKIP (not found): {local.name}", flush=True)
             print(f"       looked at  : {local}", flush=True)
 
-    # Upload JSONL knowledge chunks
-    print("\n[2/2] Uploading JSONL knowledge chunks...", flush=True)
-    jsonl_count = 0
-    for src_dir in JSONL_SOURCES:
-        for jsonl in sorted(src_dir.glob("*.jsonl")):
-            results.append(upload_file(bucket, jsonl, f"data/{jsonl.name}", dry_run))
-            jsonl_count += 1
-    if jsonl_count == 0:
-        print("  No .jsonl files found in search paths", flush=True)
+    # Upload JSON knowledge chunks
+    print("\n[2/2] Uploading JSON knowledge chunks...", flush=True)
+    json_count = 0
+    for src_dir in JSON_SOURCES:
+        if not src_dir.exists(): continue
+        for json_file in sorted(src_dir.glob("*.json")):
+            # ข้ามไฟล์ใหญ่ที่อัปโหลดไปแล้วในขั้นตอนที่ 1
+            if json_file.name in ["tripitaka_v45_metadata.json", "master_v45_ready.json"]:
+                continue
+            results.append(upload_file(bucket, json_file, f"data/{json_file.name}", dry_run))
+            json_count += 1
+    if json_count == 0:
+        print("  No .json files found in search paths", flush=True)
 
     # Summary
     ok = sum(1 for r in results if r.get("status") in ("ok", "dry_run"))
@@ -179,4 +168,14 @@ def main(dry_run: bool = "--dry-run" in sys.argv):
     total_mb = sum(r.get("size_mb", 0) for r in results)
     print(f"\n{'=' * 60}", flush=True)
     print(
-        f"  Upload comple
+        f"  Upload complete: {ok}/{total} files ({total_mb:.1f} MB total)", flush=True
+    )
+    print(
+        f"  Browse: https://console.cloud.google.com/storage/browser/{BUCKET_NAME}",
+        flush=True,
+    )
+    print(f"{'=' * 60}\n", flush=True)
+
+
+if __name__ == "__main__":
+    main()
