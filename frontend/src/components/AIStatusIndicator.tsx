@@ -1,6 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-// @ts-ignore
-import { Mic, Brain, Volume2, Circle, MicOff } from 'lucide-react';
+import { Brain, Circle, MicOff } from 'lucide-react';
 import type { NamoStatus } from '../hooks/useNamoSocket';
 
 interface AIStatusIndicatorProps {
