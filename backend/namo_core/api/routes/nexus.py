@@ -45,33 +45,36 @@ router = APIRouter(prefix="/nexus", tags=["nexus"])
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _log_event_bg(
+async def _log_event_bg(
     session_id: str,
     query: str,
     response: str,
     emotion: str,
     latency: float,
     source: str,
-):
-    """Background task สำหรับบันทึก EventLog ลง Database โดยไม่บล็อก API (Phase 12)"""
+) -> None:
+    """Background task สำหรับบันทึก EventLog ลง Database (async — ไม่บล็อก thread pool)"""
     try:
         from namo_core.database.core import SessionLocal
         from namo_core.database.models import EventLog
 
-        db = SessionLocal()
-        try:
-            log = EventLog(
-                session_id=session_id,
-                event_type=source,
-                content=query,
-                response=response,
-                emotion_state=emotion,
-                latency_ms=latency,
-            )
-            db.add(log)
-            db.commit()
-        finally:
-            db.close()
+        def _write() -> None:
+            db = SessionLocal()
+            try:
+                log = EventLog(
+                    session_id=session_id,
+                    event_type=source,
+                    content=query,
+                    response=response,
+                    emotion_state=emotion,
+                    latency_ms=latency,
+                )
+                db.add(log)
+                db.commit()
+            finally:
+                db.close()
+
+        await asyncio.to_thread(_write)
     except Exception as exc:
         logger.error("Failed to write EventLog to DB: %s", exc)
 
@@ -424,7 +427,7 @@ async def voice_chat(
             transcript={
                 "text": raw_text,
                 "confidence": transcript_result.get("confidence", 0.0),
-                "diarization": diarization,
+                "diarization": diarization_data,
             },
             speak=speak and settings.enable_tts,
             voice=voice,

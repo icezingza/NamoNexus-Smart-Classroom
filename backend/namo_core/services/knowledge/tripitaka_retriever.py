@@ -259,4 +259,9 @@ def get_tripitaka_retriever() -> TripitakaRetriever:
     return _retriever_instance
 
 
+def search_tripitaka(query: str, top_k: int = 3) -> list[dict]:
+    """Search the Tripitaka index via the singleton instance."""
+    return get_tripitaka_retriever().search(query, top_k=top_k)
+
+
 # -------------------------

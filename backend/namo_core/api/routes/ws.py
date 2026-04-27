@@ -89,7 +89,7 @@ def _get_emotion_svc() -> EmotionService:
     return _emotion_svc
 
 
-def _build_state_payload() -> dict:
+async def _build_state_payload() -> dict:
     """รวบรวม emotion + classroom + device state เป็น payload เดียว."""
     # --- emotion ---
     try:
@@ -104,7 +104,7 @@ def _build_state_payload() -> dict:
 
     # --- classroom ---
     try:
-        classroom = get_classroom_state()
+        classroom = await get_classroom_state()
     except Exception as exc:
         logger.warning("classroom snapshot failed: %s", exc)
         classroom = {}
@@ -145,7 +145,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     # ส่ง state แรกทันทีที่เชื่อมต่อ
     try:
-        await websocket.send_text(json.dumps(_build_state_payload()))
+        payload = await _build_state_payload()
+        await websocket.send_text(json.dumps(payload))
     except Exception:
         return
 
@@ -166,7 +167,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         try:
             while True:
                 await asyncio.sleep(5)
-                payload = _build_state_payload()
+                payload = await _build_state_payload()
                 await websocket.send_text(json.dumps(payload))
         except WebSocketDisconnect:
             pass

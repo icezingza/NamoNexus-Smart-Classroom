@@ -24,12 +24,12 @@ class SlideController:
     # Public API
     # ------------------------------------------------------------------
 
-    def current(self) -> dict:
+    async def current(self) -> dict:
         """Return the current slide position info."""
-        session = self._store.load()
+        session = await self._store.load()
         return self._slide_info(session)
 
-    def content(self) -> dict:
+    async def content(self) -> dict:
         """Return the current slide's full content from SlideContentService.
 
         Looks up the lesson_id stored in the session and fetches the slide
@@ -41,7 +41,7 @@ class SlideController:
         """
         from namo_core.services.classroom.slide_content_service import SlideContentService
 
-        session = self._store.load()
+        session = await self._store.load()
         lesson_id: str = session.get("lesson_id") or session.get("lesson", "")
         current = session.get("current_slide", 1)
 
@@ -60,31 +60,31 @@ class SlideController:
             "teaching_note": "",
         }
 
-    def next_slide(self) -> dict:
+    async def next_slide(self) -> dict:
         """Advance to the next slide (clamped at total_slides)."""
-        session = self._store.load()
+        session = await self._store.load()
         total = session.get("total_slides", 10)
         current = session.get("current_slide", 1)
         session["current_slide"] = min(current + 1, total)
-        self._store.save(session)
+        await self._store.save(session)
         return self._slide_info(session)
 
-    def prev_slide(self) -> dict:
+    async def prev_slide(self) -> dict:
         """Go back one slide (clamped at 1)."""
-        session = self._store.load()
+        session = await self._store.load()
         current = session.get("current_slide", 1)
         session["current_slide"] = max(current - 1, 1)
-        self._store.save(session)
+        await self._store.save(session)
         return self._slide_info(session)
 
-    def go_to(self, slide_n: int) -> dict:
+    async def go_to(self, slide_n: int) -> dict:
         """Jump to a specific slide number (1-indexed)."""
-        session = self._store.load()
+        session = await self._store.load()
         total = session.get("total_slides", 10)
         if not (1 <= slide_n <= total):
             raise ValueError(f"Slide {slide_n} out of range 1\u2013{total}")
         session["current_slide"] = slide_n
-        self._store.save(session)
+        await self._store.save(session)
         return self._slide_info(session)
 
     # ------------------------------------------------------------------

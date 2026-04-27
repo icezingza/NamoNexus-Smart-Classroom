@@ -1,6 +1,10 @@
 import httpx
+import logging
+import traceback
 
 from namo_core.services.reasoning.providers.base import BaseReasoningProvider
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
@@ -22,20 +26,28 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
 
     async def generate(self, query: str, context: str) -> dict:
         """สร้าง Namo-style prompt: system = คาแรคเตอร์, user = ข้อมูลอ้างอิง + คำถาม"""
-        user_message = self._build_rag_user_message(query=query, context=context)
-        content = await self._request_completion(
-            [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user",   "content": user_message},
-            ]
-        )
-        return {
-            "query":           query,
-            "answer":          content.strip(),
-            "context_excerpt": context[:240],
-            "provider":        self.name,
-            "model":           self.model,
-        }
+        try:
+            user_message = self._build_rag_user_message(query=query, context=context)
+            content = await self._request_completion(
+                [
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": user_message},
+                ]
+            )
+            return {
+                "query": query,
+                "answer": content.strip(),
+                "context_excerpt": context[:240],
+                "provider": self.name,
+                "model": self.model,
+            }
+        except Exception as exc:
+            logger.error(
+                "OpenAICompatibleProvider.generate failed: %s\n%s",
+                exc,
+                traceback.format_exc(),
+            )
+            raise
 
     async def chat(self, messages: list[dict], context: str) -> dict:
         """Multi-turn chat: ข้อมูลอ้างอิง inject เข้า system prompt รักษา history"""
@@ -46,17 +58,26 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
         formatted_messages = [{"role": "system", "content": system_content}]
         formatted_messages.extend(messages)
 
-        content = await self._request_completion(formatted_messages)
-        last_query = next(
-            (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
-        )
-        return {
-            "query":           last_query,
-            "answer":          content.strip(),
-            "context_excerpt": context[:240] if context else "",
-            "provider":        self.name,
-            "model":           self.model,
-        }
+        try:
+            content = await self._request_completion(formatted_messages)
+            last_query = next(
+                (m["content"] for m in reversed(messages) if m.get("role") == "user"),
+                "",
+            )
+            return {
+                "query": last_query,
+                "answer": content.strip(),
+                "context_excerpt": context[:240] if context else "",
+                "provider": self.name,
+                "model": self.model,
+            }
+        except Exception as exc:
+            logger.error(
+                "OpenAICompatibleProvider.chat failed: %s\n%s",
+                exc,
+                traceback.format_exc(),
+            )
+            raise
 
     @staticmethod
     def _build_rag_user_message(query: str, context: str) -> str:
@@ -76,20 +97,24 @@ class OpenAICompatibleReasoningProvider(BaseReasoningProvider):
         return f"คำถาม: {query}"
 
     async def _request_completion(self, messages: list[dict]) -> str:
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                },
-            )
-            response.raise_for_status()
-            return self._extract_content(response.json())
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                    },
+                )
+                response.raise_for_status()
+                return self._extract_content(response.json())
+        except Exception as exc:
+            logger.error("OpenAI API call failed: %s\n%s", exc, traceback.format_exc())
+            raise
 
     def _extract_content(self, payload: dict) -> str:
         choices = payload.get("choices") or []

@@ -16,6 +16,7 @@ from namo_core.api.routes.tts import router as tts_router
 from namo_core.api.routes.ws import router as ws_router
 from namo_core.api.routes.feedback import router as feedback_router
 from namo_core.api.routes.auth_routes import router as auth_routes_router
+from namo_core.api.routes.notebook import router as notebook_router
 from namo_core.config.settings import get_settings
 from namo_core.services.knowledge.cache_initialization import initialize_semantic_cache
 from namo_core.database.core import SessionLocal, engine, Base
@@ -61,8 +62,9 @@ def create_app() -> FastAPI:
 
     # Startup event: Create SQLite tables + Initialize semantic cache
     @app.on_event("startup")
-    def startup_db_and_cache():
+    async def startup_db_and_cache():
         import logging
+
         _logger = logging.getLogger(__name__)
         # Phase 12: auto-create all tables (idempotent — safe to run on every start)
         try:
@@ -78,11 +80,15 @@ def create_app() -> FastAPI:
         except Exception as exc:
             _logger.warning("Failed to initialize semantic cache: %s", exc)
 
+        # Phase 1: Load Secrets from GCP Secret Manager
+        try:
+            from namo_core.utils.gcp_secrets import load_all_secrets
+            await load_all_secrets()
+        except ImportError:
+            _logger.warning("GCP Secret Manager libraries not found. Using local environment variables.")
+        except Exception as exc:
+            _logger.error("Failed to load secrets from GCP: %s", exc)
+
     return app
-
-
-app = create_app()
-rn app
-
 
 app = create_app()

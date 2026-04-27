@@ -52,10 +52,43 @@ export function useNamoSettings() {
     localStorage.setItem(LS_KEY, JSON.stringify(newSettings));
   }, []);
 
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
+    if (settings.token) {
+      try {
+        // Parse JWT payload (base64url to JSON)
+        const parts = settings.token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          const exp = payload.exp * 1000;
+          const timeLeft = exp - Date.now();
+          if (timeLeft < 5 * 60 * 1000 && timeLeft > 0) {
+            console.warn("Namo Token is expiring in less than 5 minutes. Please re-authenticate soon.");
+            // In a real app, you might trigger a toast notification or auto-refresh here
+          }
+        }
+      } catch (err) {
+        // Ignore parsing errors for non-JWT tokens (like 'NamoSovereignToken2026' dev token)
+      }
+    }
+
+    const headers = new Headers(options.headers || {});
+    if (settings.token) {
+      headers.set('Authorization', `Bearer ${settings.token}`);
+    }
+
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401 || response.status === 403) {
+      console.error("Namo API Authentication Failed: Invalid or expired token");
+      alert("เซสชันการใช้งานหมดอายุ หรือ Token ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+    }
+    return response;
+  }, [settings.token]);
+
   return {
     settings,
     saveSettings,
     wsUrl: buildWsUrl(settings),
     httpUrl: buildHttpUrl(settings),
+    fetchWithAuth,
   };
 }

@@ -18,23 +18,36 @@ Event types:
 """
 from __future__ import annotations
 
+import json
+import logging
 from collections import deque
 from datetime import datetime, timezone
+import redis.asyncio as redis
+
+from namo_core.config.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 _MAX_EVENTS = 200
-
+REDIS_KEY_EVENTS = "namo:classroom:events"
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
-
 
 class ClassroomEventLog:
     """Append-only event log with a fixed-size rolling window."""
 
     def __init__(self, capacity: int = _MAX_EVENTS) -> None:
-        self._events: deque[dict] = deque(maxlen=capacity)
+        self.capacity = capacity
+        settings = get_settings()
+        if settings.redis_url:
+            self.redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            self.use_redis = True
+        else:
+            self.use_redis = False
+            self._events: deque[dict] = deque(maxlen=capacity)
 
-    def log(self, event_type: str, data: dict | None = None) -> dict:
+    async def log(self, event_type: str, data: dict | None = None) -> dict:
         """Append a new event to the log.
 
         Args:
@@ -49,33 +62,45 @@ class ClassroomEventLog:
             "type": event_type,
             "data": data or {},
         }
-        self._events.append(event)
+        if self.use_redis:
+            # RPUSH to append to the right
+            await self.redis.rpush(REDIS_KEY_EVENTS, json.dumps(event, ensure_ascii=False))
+            # Keep only the last capacity elements
+            await self.redis.ltrim(REDIS_KEY_EVENTS, -self.capacity, -1)
+        else:
+            self._events.append(event)
         return event
 
-    def recent(self, n: int = 20) -> list[dict]:
-        """Return the N most recent events (newest last).
+    async def recent(self, n: int = 20) -> list[dict]:
+        """Return the N most recent events (newest last)."""
+        if self.use_redis:
+            raw_events = await self.redis.lrange(REDIS_KEY_EVENTS, -n, -1)
+            return [json.loads(e) for e in raw_events]
+        else:
+            events = list(self._events)
+            return events[-n:] if n < len(events) else events
 
-        Args:
-            n: Maximum number of events to return.
-
-        Returns:
-            List of event dicts.
-        """
-        events = list(self._events)
-        return events[-n:] if n < len(events) else events
-
-    def all(self) -> list[dict]:
+    async def all(self) -> list[dict]:
         """Return all stored events (oldest first)."""
+        if self.use_redis:
+            raw_events = await self.redis.lrange(REDIS_KEY_EVENTS, 0, -1)
+            return [json.loads(e) for e in raw_events]
         return list(self._events)
 
-    def count(self) -> int:
+    async def count(self) -> int:
         """Return total number of events logged."""
+        if self.use_redis:
+            return await self.redis.llen(REDIS_KEY_EVENTS)
         return len(self._events)
 
-    def clear(self) -> None:
+    async def clear(self) -> None:
         """Remove all events (called on session reset)."""
-        self._events.clear()
+        if self.use_redis:
+            await self.redis.delete(REDIS_KEY_EVENTS)
+        else:
+            self._events.clear()
 
-    def since(self, event_type: str) -> list[dict]:
+    async def since(self, event_type: str) -> list[dict]:
         """Return all events of a given type."""
-        return [e for e in self._events if e["type"] == event_type]
+        all_events = await self.all()
+        return [e for e in all_events if e["type"] == event_type]

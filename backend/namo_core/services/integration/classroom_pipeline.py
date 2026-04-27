@@ -34,6 +34,7 @@ Full pipeline flow:
       ↓
     PipelineResult dict
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -109,7 +110,11 @@ class ClassroomPipeline:
         # ── Stage 1: Emotion Detection ─────────────────────────────────────────
         emotion_result = self._detect_emotion(perception, transcript)
         meta["stages_completed"].append("emotion")
-        logger.debug("emotion: %s (composite=%.3f)", emotion_result["smoothed_state"], emotion_result["composite_score"])
+        logger.debug(
+            "emotion: %s (composite=%.3f)",
+            emotion_result["smoothed_state"],
+            emotion_result["composite_score"],
+        )
 
         # ── Stage 2: Resonance + EmpathyEngine → teaching_hint ────────────────
         teaching_hint, tone, student_state = self._run_empathy(
@@ -127,7 +132,9 @@ class ClassroomPipeline:
             meta["stages_completed"].append("slide_context")
 
         # ── Stage 4: Knowledge RAG Search ─────────────────────────────────────
-        reasoning_result = await self._run_reasoning(query, teaching_hint, slide_context)
+        reasoning_result = await self._run_reasoning(
+            query, teaching_hint, slide_context
+        )
         meta["stages_completed"].append("reasoning")
         logger.debug("reasoning sources: %d", len(reasoning_result.get("sources", [])))
 
@@ -138,7 +145,9 @@ class ClassroomPipeline:
         # ── Stage 6: TTS (optional) ───────────────────────────────────────────
         tts_result: dict | None = None
         if speak:
-            tts_result = await self._synthesize(reasoning_result.get("answer", ""), voice)
+            tts_result = await self._synthesize(
+                reasoning_result.get("answer", ""), voice
+            )
             if tts_result:
                 meta["stages_completed"].append("tts")
 
@@ -162,10 +171,13 @@ class ClassroomPipeline:
         """Run EmotionService and return detection result."""
         if self._emotion_service is None:
             from namo_core.services.emotion.emotion_service import EmotionService
+
             self._emotion_service = EmotionService()
 
         try:
-            return self._emotion_service.detect(perception=perception, transcript=transcript)
+            return self._emotion_service.detect(
+                perception=perception, transcript=transcript
+            )
         except Exception as exc:
             logger.warning("Emotion detection failed: %s", exc)
             return {
@@ -182,9 +194,11 @@ class ClassroomPipeline:
         """Run ResonanceEngine + EmpathyEngine and return (teaching_hint, tone, student_state)."""
         if self._resonance_engine is None:
             from namo_core.engines.resonance.engine import ResonanceEngine
+
             self._resonance_engine = ResonanceEngine()
         if self._empathy_engine is None:
             from namo_core.engines.empathy.engine import EmpathyEngine
+
             self._empathy_engine = EmpathyEngine()
 
         try:
@@ -206,6 +220,7 @@ class ClassroomPipeline:
         try:
             if self._slide_controller is None:
                 from namo_core.modules.classroom.slide_controller import SlideController
+
                 self._slide_controller = SlideController()
 
             slide = self._slide_controller.content()
@@ -269,64 +284,67 @@ class ClassroomPipeline:
 
         if self._knowledge_service is None:
             from namo_core.services.knowledge.knowledge_service import KnowledgeService
+
             self._knowledge_service = KnowledgeService()
 
         if self._reasoning_service is None:
             from namo_core.services.reasoning.reasoner import ReasoningService
+
             self._reasoning_service = ReasoningService()
 
         try:
-            # FAISS search is CPU-bound, run in thread pool
-            results = await to_thread(self._knowledge_service.search, query)
-            knowledge_context = self._knowledge_service.context_builder.build(
-                results or await to_thread(self._knowledge_service.search, "")
+            # Delegate fully to ReasoningService (which handles FAISS + LLM async-natively)
+            response = await self._reasoning_service.explain(
+                query=query, teaching_hint=teaching_hint
             )
-            combined_context = self._build_combined_context(
-                knowledge_context, teaching_hint, slide_context
-            )
-            # LLM provider HTTP call is IO-bound, run in thread pool
-            response, metadata = await to_thread(
-                self._reasoning_service._run_provider,
-                "generate",
-                query,
-                combined_context,
-            )
-            response["context"] = combined_context
-            response["sources"] = [
-                {"id": r["id"], "title": r["title"], "source": r["source"], "score": r.get("score")}
-                for r in results[:5]
-            ]
-            response["provider_metadata"] = metadata
 
             # ── Cache the response for future semantic matches ─────────────────
             query_cache.add_to_cache(query, response)
-            logger.debug(f"[Semantic Cache] Cached response for: '{query[:80]}'")
+            logger.debug("[Semantic Cache] Cached response for: '%s'", query[:80])
 
             return response
         except Exception as exc:
-            logger.error("Reasoning failed: %s", exc)
+            import traceback
+
+            logger.error(
+                "CRITICAL: Reasoning failed in pipeline: %s\n%s",
+                exc,
+                traceback.format_exc(),
+            )
             return {
                 "query": query,
                 "answer": f"ขออภัย ระบบไม่สามารถตอบคำถามได้ในขณะนี้: {exc}",
                 "sources": [],
                 "context": "",
+                "provider": "error",
+                "model": "fallback-error",
             }
 
     def _log_interaction(self, query: str, emotion_state: str) -> None:
         """Log the interaction to the classroom event log."""
         try:
             if self._classroom_service is None:
-                from namo_core.services.classroom.classroom_service import ClassroomService
+                from namo_core.services.classroom.classroom_service import (
+                    ClassroomService,
+                )
+
                 self._classroom_service = ClassroomService()
 
             from namo_core.services.classroom.classroom_event_log import _event_log
-            _event_log.log("ai_response", {
-                "query": query[:100],
-                "emotion_state": emotion_state,
-            })
+
+            _event_log.log(
+                "ai_response",
+                {
+                    "query": query[:100],
+                    "emotion_state": emotion_state,
+                },
+            )
 
             # Transition: teaching → listening → responding → teaching
-            from namo_core.services.classroom.teaching_state_machine import _state_machine
+            from namo_core.services.classroom.teaching_state_machine import (
+                _state_machine,
+            )
+
             current = _state_machine.current
             if current == "teaching":
                 try:
@@ -346,6 +364,7 @@ class ClassroomPipeline:
         try:
             if self._tts_synthesizer is None:
                 from namo_core.modules.tts.synthesizer import SpeechSynthesizer
+
                 self._tts_synthesizer = SpeechSynthesizer()
 
             return await to_thread(self._tts_synthesizer.speak, text=text, voice=voice)

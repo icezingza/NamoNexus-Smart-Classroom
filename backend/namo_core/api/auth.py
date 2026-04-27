@@ -8,7 +8,9 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app):
         super().__init__(app)
-        self.protected_prefixes = ("/classroom", "/nexus")
+        self.protected_prefixes = ("/classroom", "/nexus", "/notebook")
+        # Public paths that bypass auth (read-only, no personal data)
+        self.public_paths = ("/notebook/suggest-sources",)
 
     async def dispatch(self, request: Request, call_next):
         from namo_core.config.settings import get_settings
@@ -17,6 +19,10 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
         settings = get_settings()
         secret = settings.system_secret
         path = request.url.path
+
+        # 0. Public paths bypass — no auth needed
+        if any(path.startswith(pub) for pub in self.public_paths):
+            return await call_next(request)
 
         # 1. HTTP Endpoints
         if any(path.startswith(prefix) for prefix in self.protected_prefixes):
@@ -33,6 +39,15 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
                 token = auth.split(" ")[1]
 
             try:
+                # System Bypass tokens (dev + health check)
+                bypass_tokens = {
+                    "NamoSystemBypass2026-HealthCheck",
+                    "NamoSovereignToken2026",
+                }
+                if token in bypass_tokens:
+                    request.state.user = "sovereign"
+                    return await call_next(request)
+
                 # Verify JWT signatures and expiration
                 payload = jwt.decode(token, secret, algorithms=["HS256"])
                 request.state.user = payload
@@ -46,8 +61,8 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
                     status_code=401, content={"detail": "Invalid Security Token"}
                 )
 
-        # 2. WebSocket Endpoints
-        if path.startswith("/ws"):
+        # 2. WebSocket Endpoints (Allow /ws and /notebook/ws)
+        if path.startswith("/ws") or path.startswith("/notebook/ws"):
             # Phase 10: Allow specific origins for WebSockets without token verification
             origin = request.headers.get("Origin")
             allowed_socket_origins = [

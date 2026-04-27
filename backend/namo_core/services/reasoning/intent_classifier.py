@@ -6,6 +6,7 @@ Falls back to keyword matching automatically when:
 
 This keeps the engine pipeline safe and fast in all environments.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,9 +41,7 @@ _INTENT_SYSTEM_PROMPT = (
     + "."
 )
 _INTENT_USER_TEMPLATE = (
-    "Classify the intent of this student query.\n"
-    "Query: {query}\n"
-    "Intent label:"
+    "Classify the intent of this student query.\nQuery: {query}\nIntent label:"
 )
 
 
@@ -98,6 +97,11 @@ class IntentClassifier:
             raw_text: str = response.get("answer", "") or str(response)
             intent = _parse_intent(raw_text)
             return intent, "llm"
-        except Exception:
+        except Exception as exc:
             # Any LLM failure → silent fallback to keywords
+            import logging, traceback
+
+            logging.getLogger(__name__).error(
+                "IntentClassifier LLM failed: %s\n%s", exc, traceback.format_exc()
+            )
             return _keyword_classify(query), "keyword"

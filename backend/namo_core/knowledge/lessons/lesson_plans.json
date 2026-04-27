@@ -1,0 +1,15 @@
+[
+  {
+    "id": "lesson-intro-buddhism",
+    "title": "Introduction to Buddhism",
+    "level": "beginner",
+    "duration_minutes": 60,
+    "objectives": [
+      "Understand the basic life of the Buddha",
+      "Identify the Four Noble Truths",
+      "Explain the concept of Mindfulness"
+    ],
+    "key_concepts": ["Buddha", "Four Noble Truths", "Mindfulness"],
+    "related_suttas": ["Dhammacakkappavattana Sutta"]
+  }
+]

@@ -3,7 +3,7 @@
 $projectDir = Split-Path -Parent $PSScriptRoot
 $backendDir = "$projectDir\backend"
 $pidFile = "$projectDir\logs\.pid"
-$venvPath = "$projectDir\.venv\Scripts\activate.ps1"
+$venvPath = "$projectDir\backend\namo_core\venv\Scripts\activate.ps1"
 
 Write-Host "[*] Starting Namo Core Backend..." -ForegroundColor Cyan
 

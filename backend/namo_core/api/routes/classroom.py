@@ -28,6 +28,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -67,37 +68,35 @@ class StudentRequest(BaseModel):
 
 
 @router.get("/session")
-def classroom_session() -> dict:
+async def classroom_session() -> dict:
     """Return the current classroom session state."""
-    return ClassroomService().get_session_summary()
-
+    return await ClassroomService().get_session_summary()
 
 @router.patch("/session")
-def update_classroom_session(payload: SessionUpdate) -> dict:
+async def update_classroom_session(payload: SessionUpdate) -> dict:
     """Update high-level session metadata. For slide/projector use specific endpoints."""
-    return ClassroomService().update_session(payload.model_dump())
-
+    return await ClassroomService().update_session(payload.model_dump())
 
 @router.post("/session/start")
-def start_session(payload: StartSessionRequest) -> dict:
+async def start_session(payload: StartSessionRequest) -> dict:
     """Start a classroom session for the given lesson.
 
     Loads slide count, resets to slide 1, sets projector to 'lesson' mode,
     and transitions assistant state to 'teaching'.
     """
     try:
-        return ClassroomService().start_session(payload.lesson_id.strip())
+        return await ClassroomService().start_session(payload.lesson_id.strip())
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/session/end")
-def end_session() -> dict:
+async def end_session() -> dict:
     """End the current classroom session.
 
     Clears student roster, sets projector to standby, resets assistant state.
     """
-    return ClassroomService().end_session()
+    return await ClassroomService().end_session()
 
 
 # ------------------------------------------------------------------
@@ -106,34 +105,30 @@ def end_session() -> dict:
 
 
 @router.get("/slide")
-def get_current_slide() -> dict:
+async def get_current_slide() -> dict:
     """Return current slide position."""
-    return SlideController().current()
-
+    return await SlideController().current()
 
 @router.get("/slide/content")
-def get_slide_content() -> dict:
+async def get_slide_content() -> dict:
     """Return full content of the current slide (title, body, dhamma_point, etc.)."""
-    return SlideController().content()
-
+    return await SlideController().content()
 
 @router.post("/slide/next")
-def next_slide() -> dict:
+async def next_slide() -> dict:
     """Advance to the next slide."""
-    return SlideController().next_slide()
-
+    return await SlideController().next_slide()
 
 @router.post("/slide/prev")
-def prev_slide() -> dict:
+async def prev_slide() -> dict:
     """Go back one slide."""
-    return SlideController().prev_slide()
-
+    return await SlideController().prev_slide()
 
 @router.post("/slide/{slide_n}")
-def go_to_slide(slide_n: int) -> dict:
+async def go_to_slide(slide_n: int) -> dict:
     """Jump to a specific slide number."""
     try:
-        return SlideController().go_to(slide_n)
+        return await SlideController().go_to(slide_n)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -144,16 +139,15 @@ def go_to_slide(slide_n: int) -> dict:
 
 
 @router.get("/projector")
-def get_projector_status() -> dict:
+async def get_projector_status() -> dict:
     """Return current projector mode and valid modes."""
-    return ProjectorController().status()
-
+    return await ProjectorController().status()
 
 @router.post("/projector/{mode}")
-def set_projector_mode(mode: str) -> dict:
+async def set_projector_mode(mode: str) -> dict:
     """Set the projector to a specific mode (off/lesson/quiz/reflection/standby)."""
     try:
-        return ProjectorController().set_mode(mode)
+        return await ProjectorController().set_mode(mode)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -164,27 +158,25 @@ def set_projector_mode(mode: str) -> dict:
 
 
 @router.post("/student/connect")
-def connect_student(payload: StudentRequest) -> dict:
+async def connect_student(payload: StudentRequest) -> dict:
     """Register a student as connected to the current session."""
     try:
-        return ClassroomService().connect_student(payload.name)
+        return await ClassroomService().connect_student(payload.name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-
 @router.post("/student/disconnect")
-def disconnect_student(payload: StudentRequest) -> dict:
+async def disconnect_student(payload: StudentRequest) -> dict:
     """Remove a student from the current session roster."""
     try:
-        return ClassroomService().disconnect_student(payload.name)
+        return await ClassroomService().disconnect_student(payload.name)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-
 @router.get("/students")
-def get_students() -> dict:
+async def get_students() -> dict:
     """Return the current student roster and total count."""
-    return ClassroomService().get_students()
+    return await ClassroomService().get_students()
 
 
 # ------------------------------------------------------------------
@@ -193,13 +185,13 @@ def get_students() -> dict:
 
 
 @router.post("/assistant/{state}")
-def transition_assistant_state(state: str) -> dict:
+async def transition_assistant_state(state: str) -> dict:
     """Transition the assistant state machine to the given state.
 
     Valid states: ready, teaching, listening, responding, paused, done.
     """
     try:
-        return ClassroomService().transition_state(state)
+        return await ClassroomService().transition_state(state)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -210,19 +202,19 @@ def transition_assistant_state(state: str) -> dict:
 
 
 @router.get("/events")
-def get_events(
+async def get_events(
     n: int = Query(
         default=20, ge=1, le=200, description="Number of recent events to return"
     ),
 ) -> dict:
     """Return the classroom event log (most recent N events)."""
-    return ClassroomService().get_events(n)
+    return await ClassroomService().get_events(n)
 
 
 @router.get("/lessons")
-def list_lessons() -> dict:
+async def list_lessons() -> dict:
     """Return all available lessons with slide count."""
-    lessons = SlideContentService().list_lessons()
+    lessons = await asyncio.to_thread(SlideContentService().list_lessons)
     return {"count": len(lessons), "lessons": lessons}
 
 
@@ -232,12 +224,15 @@ def list_lessons() -> dict:
 
 
 @router.post("/session/{session_id}/generate-summary")
-def generate_session_summary(session_id: str, db: Session = Depends(get_db)) -> dict:
+async def generate_session_summary(session_id: str, db: Session = Depends(get_db)) -> dict:
     """
     [New Feature] AI Session Analytics
     ประมวลผลข้อมูลตลอดคาบเรียน (ประวัติคำถาม, อารมณ์) เพื่อให้ AI สรุปเป็นรายงานสำหรับครู
     """
-    events = db.query(EventLog).filter(EventLog.session_id == session_id).all()
+    def _fetch_events():
+        return db.query(EventLog).filter(EventLog.session_id == session_id).all()
+        
+    events = await asyncio.to_thread(_fetch_events)
     if not events:
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูล EventLog สำหรับ Session นี้")
 
@@ -261,7 +256,7 @@ def generate_session_summary(session_id: str, db: Session = Depends(get_db)) -> 
         + "\n\nให้สรุปสั้นๆ 3 หัวข้อ:\n1. ภาพรวมความสนใจ\n2. ประเด็นคำถามหลักที่นักเรียนสงสัย\n3. ข้อเสนอแนะสำหรับครูในคาบถัดไป"
     )
 
-    ai_result = get_reasoner().explain(
+    ai_result = await get_reasoner().explain(
         prompt, teaching_hint="วิเคราะห์อย่างเป็นกลาง ใช้ภาษาทางการและเข้าใจง่าย"
     )
 

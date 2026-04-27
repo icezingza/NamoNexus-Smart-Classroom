@@ -11,14 +11,27 @@ interface NotebookDashboardProps {
   isOpen: boolean;
   onClose: () => void;
   httpUrl: string;
+  wsUrl: string;
+  fetchWithAuth: (url: string, options?: RequestInit) => Promise<Response>;
   aiStatus: string;
   isMuted: boolean;
 }
 
-export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({ 
-  isOpen, 
-  onClose, 
+const DHAMMA_QUOTES = [
+  "ผู้ให้ย่อมผูกมิตรไว้ได้ (สังยุตตนิกาย)",
+  "แสงสว่างเสมอด้วยปัญญาไม่มี (สังยุตตนิกาย)",
+  "การฝึกจิตเป็นความดี จิตที่ฝึกดีแล้วนำสุขมาให้ (ขุททกนิกาย)",
+  "ปัญญาประเสริฐกว่าทรัพย์ (มัชฌิมนิกาย)",
+  "บุคคลย่อมบริสุทธิ์ด้วยปัญญา (ขุททกนิกาย)",
+  "สติเป็นเครื่องตื่นในโลก (สังยุตตนิกาย)"
+];
+
+export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
+  isOpen,
+  onClose,
   httpUrl,
+  wsUrl,
+  fetchWithAuth,
   aiStatus,
   isMuted
 }) => {
@@ -30,16 +43,44 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SourceItem[]>([]);
 
+  const [searchError, setSearchError] = useState<string>('');
+
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setQuoteIndex(prev => (prev + 1) % DHAMMA_QUOTES.length);
+      }, 3500);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   if (!isOpen) return null;
 
   const handleSearch = async () => {
     if (!query.trim()) return;
+    setSearchError('');
+    setSuggestions([]);
     try {
-      const resp = await fetch(`${httpUrl}/notebook/suggest-sources?q=${encodeURIComponent(query)}`);
+      const url = `${httpUrl}/notebook/suggest-sources?q=${encodeURIComponent(query)}`;
+      console.log('[NamoNotebook] Searching:', url);
+      const resp = await fetchWithAuth(url);
+      if (!resp.ok) {
+        setSearchError(`ค้นหาไม่สำเร็จ (HTTP ${resp.status})`);
+        return;
+      }
       const data = await resp.json();
-      setSuggestions(data.suggestions || []);
+      const items = data.suggestions || [];
+      console.log('[NamoNotebook] Got suggestions:', items.length);
+      if (items.length === 0) {
+        setSearchError('ไม่พบคัมภีร์ที่ตรงกับคำค้นหา ลองคำอื่นดูครับ');
+      }
+      setSuggestions(items);
     } catch (err) {
-      console.error("Search failed", err);
+      console.error('[NamoNotebook] Search failed:', err);
+      setSearchError('เชื่อมต่อ Backend ไม่ได้ กรุณาตรวจสอบการเชื่อมต่อ');
     }
   };
 
@@ -54,29 +95,92 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
   const handleGenerate = async () => {
     if (sources.length === 0) return;
     setIsLoading(true);
+    setResult(null);
+    setQuoteIndex(0);
+
     try {
-      const resp = await fetch(`${httpUrl}/notebook/generate`, {
+      const resp = await fetchWithAuth(`${httpUrl}/notebook/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sources,
-          mode,
-          instruction
-        })
+        body: JSON.stringify({ sources, mode, instruction })
       });
       const data = await resp.json();
-      setResult(data);
+
+      if (data.job_id) {
+        // Attempt WebSocket connection for Real-Time Event-Driven Updates
+        let wsConnected = false;
+        try {
+          const wsEndpoint = wsUrl.split('?')[0].replace('/ws', `/notebook/ws/${data.job_id}`);
+          // Include token in query string if needed, assuming wsEndpoint handled it
+          const wsTokenParams = wsUrl.includes('?') ? `?${wsUrl.split('?')[1]}` : '';
+          const ws = new WebSocket(`${wsEndpoint}${wsTokenParams}`);
+          let pingInterval: ReturnType<typeof setInterval>;
+
+          ws.onopen = () => {
+            wsConnected = true;
+            // Heartbeat: ส่ง Ping ทุกๆ 30 วินาที เพื่อป้องกันท่อ WebSocket หลุด (The Long-Run Test)
+            pingInterval = setInterval(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "ping" }));
+              }
+            }, 30000);
+          };
+          ws.onmessage = (event) => {
+            const payload = JSON.parse(event.data);
+            if (payload.status === "completed" || payload.status === "failed") {
+              setResult(payload);
+              setIsLoading(false);
+              clearInterval(pingInterval);
+              ws.close();
+            }
+          };
+          ws.onerror = () => {
+            clearInterval(pingInterval);
+            ws.close();
+          };
+          ws.onclose = () => {
+            clearInterval(pingInterval);
+            // Fallback: If disconnected and still loading, start HTTP Polling
+            if (isLoading && wsConnected) {
+              console.warn("WebSocket dropped, falling back to HTTP polling...");
+              startHttpPolling(data.job_id);
+            } else if (isLoading && !wsConnected) {
+              startHttpPolling(data.job_id);
+            }
+          };
+        } catch (e) {
+          startHttpPolling(data.job_id);
+        }
+      } else {
+        setResult(data);
+        setIsLoading(false);
+      }
     } catch (err) {
       console.error("Generation failed", err);
-    } finally {
       setIsLoading(false);
     }
+  };
+
+  const startHttpPolling = (jobId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const resp = await fetchWithAuth(`${httpUrl}/notebook/job/${jobId}`);
+        const data = await resp.json();
+        if (data.status === "completed" || data.status === "failed") {
+          clearInterval(pollInterval);
+          setResult(data);
+          setIsLoading(false);
+        }
+      } catch (e) {
+        console.error("Polling error", e);
+      }
+    }, 3000);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-2 md:p-4 animate-in fade-in duration-300">
       <div className="bg-slate-950 border border-slate-800 w-full max-w-7xl h-[95vh] md:h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-        
+
         {/* Mobile-Friendly Header */}
         <div className="flex items-center justify-between px-4 md:px-8 py-4 md:py-6 border-b border-slate-800 bg-slate-900/40">
           <div className="flex items-center gap-4 md:gap-8">
@@ -96,15 +200,15 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                 <div className={`w-2.5 h-2.5 rounded-full ${aiStatus === 'connected' ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]' : 'bg-rose-500'}`} />
                 <span className="text-[10px] md:text-xs font-black text-slate-300 uppercase">AI</span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Mic className={`w-4 h-4 ${isMuted ? 'text-rose-500' : 'text-cyan-400'}`} />
                 <div className="flex items-center gap-1">
                   {[0.4, 0.7, 0.3, 0.9, 0.5].map((h, i) => (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className="w-1 bg-cyan-500/40 rounded-full transition-all duration-300"
-                      style={{ 
+                      style={{
                         height: aiStatus === 'connected' && !isMuted ? `${h * 14}px` : '3px',
                         opacity: isMuted ? 0.2 : 1
                       }}
@@ -121,14 +225,14 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
         </div>
 
         <div className="flex-1 flex overflow-hidden flex-col md:flex-row">
-          
+
           {/* Sidebar - Sources (Scrollable on Tablet) */}
           <div className="w-full md:w-[350px] border-b md:border-b-0 md:border-r border-slate-800 p-4 md:p-6 flex flex-col gap-4 md:gap-6 bg-slate-900/20 overflow-y-auto md:overflow-visible h-1/3 md:h-auto">
             <div>
               <label className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-3 block">1. ค้นหาคัมภีร์อ้างอิง</label>
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -139,21 +243,24 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                   <Search className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
-              
+
               {/* Suggestions - Touch Optimized */}
               {suggestions.length > 0 && (
                 <div className="mt-3 bg-slate-900 border-2 border-slate-800 rounded-2xl max-h-60 overflow-y-auto shadow-2xl z-30 relative divide-y divide-slate-800/50">
                   {suggestions.map((s, i) => (
-                    <button 
-                      key={i} 
+                    <button
+                      key={i}
                       onClick={() => addSource(s)}
                       className="w-full text-left p-4 hover:bg-slate-800 transition-colors active:bg-cyan-500/10 group"
                     >
-                      <div className="font-bold text-cyan-400 group-hover:text-cyan-300 text-sm md:text-base mb-1">{s.title}</div>
-                      <div className="text-slate-500 line-clamp-1 text-[10px] md:text-xs">{s.text}</div>
+                      <div className="font-bold text-cyan-400 group-hover:text-cyan-300 text-sm md:text-base mb-1">{s.title || s.text?.slice(0, 40) || '(ไม่มีชื่อ)'}</div>
+                      <div className="text-slate-500 line-clamp-1 text-[10px] md:text-xs">{s.text?.slice(0, 80)}</div>
                     </button>
                   ))}
                 </div>
+              )}
+              {searchError && (
+                <p className="mt-2 text-xs text-rose-400 px-1">{searchError}</p>
               )}
             </div>
 
@@ -167,7 +274,7 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                   <div key={i} className="bg-slate-900 border-2 border-slate-800/50 p-4 rounded-2xl relative group hover:border-cyan-500/30 transition-all active:scale-[0.98]">
                     <div className="text-[9px] font-black text-cyan-500/50 uppercase tracking-tighter mb-1">{s.source}</div>
                     <div className="text-xs md:text-sm font-bold text-slate-200 line-clamp-2 leading-relaxed">{s.title}</div>
-                    <button 
+                    <button
                       onClick={() => setSources(sources.filter((_, idx) => idx !== i))}
                       className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-xl transition-all"
                     >
@@ -187,7 +294,7 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
 
           {/* Main Content - Generation (Large Hit Targets for Tablet) */}
           <div className="flex-1 p-4 md:p-10 flex flex-col gap-6 md:gap-10 overflow-y-auto custom-scrollbar bg-slate-950">
-            
+
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
               {[
                 { id: 'briefing', label: 'สรุปเตรียมสอน', icon: FileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
@@ -199,11 +306,10 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
-                  className={`flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[2.5rem] border-2 transition-all active:scale-95 ${
-                    mode === m.id 
-                    ? `border-cyan-500 ${m.bg} shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)]` 
-                    : 'border-slate-800/50 bg-slate-900/20 hover:border-slate-700 hover:bg-slate-900/40'
-                  }`}
+                  className={`flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[2.5rem] border-2 transition-all active:scale-95 ${mode === m.id
+                      ? `border-cyan-500 ${m.bg} shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)]`
+                      : 'border-slate-800/50 bg-slate-900/20 hover:border-slate-700 hover:bg-slate-900/40'
+                    }`}
                 >
                   <div className={`p-3 md:p-4 rounded-2xl ${mode === m.id ? 'bg-cyan-500 text-white' : `${m.bg} ${m.color}`}`}>
                     <m.icon className="w-6 h-6 md:w-8 md:h-8" />
@@ -220,7 +326,7 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                 3. คำสั่งพิเศษถึงนะโม (Instruction)
                 <span className="h-1 flex-1 bg-slate-800/50 rounded-full" />
               </label>
-              <textarea 
+              <textarea
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 placeholder="เช่น 'เน้นศัพท์ภาษาบาลี', 'สรุปให้เด็กอนุบาลเข้าใจง่ายๆ'..."
@@ -228,17 +334,27 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
               />
             </div>
 
-            <button 
+            <button
               onClick={handleGenerate}
               disabled={isLoading || sources.length === 0}
-              className={`w-full py-5 md:py-8 rounded-[2rem] font-black text-sm md:text-xl uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.97] ${
-                isLoading || sources.length === 0
-                ? 'bg-slate-900 text-slate-700 border-2 border-slate-800'
-                : 'bg-gradient-to-br from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-2xl shadow-cyan-500/20'
-              }`}
+              className={`relative w-full py-5 md:py-8 rounded-[2rem] font-black text-sm md:text-xl uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all active:scale-[0.97] overflow-hidden ${isLoading || sources.length === 0
+                  ? 'bg-slate-900 text-slate-700 border-2 border-slate-800'
+                  : 'bg-gradient-to-br from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white shadow-2xl shadow-cyan-500/20'
+                }`}
             >
-              {isLoading ? <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin" /> : <Send className="w-6 h-6" />}
-              {isLoading ? 'Processing...' : 'Saturate Wisdom'}
+              {isLoading && (
+                <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-md flex flex-col items-center justify-center gap-2 animate-in fade-in z-10 text-cyan-400">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-xs font-bold tracking-[0.2em]">Saturating Wisdom...</span>
+                  </div>
+                  <span className="text-[10px] md:text-xs text-slate-400 normal-case tracking-normal animate-pulse font-medium text-center px-4">
+                    "{DHAMMA_QUOTES[quoteIndex]}"
+                  </span>
+                </div>
+              )}
+              <Send className="w-6 h-6" />
+              Saturate Wisdom
             </button>
 
             {/* Result Area - Extra Clean for Tablet */}
@@ -271,15 +387,15 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
             <div className="w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
             <span className="text-[10px] md:text-xs font-black text-white uppercase tracking-tighter">Room 01</span>
           </div>
-          
+
           <div className="w-full h-full flex items-center justify-center">
-            <img 
-              src="https://images.unsplash.com/photo-1577891772227-d263f5e3c973?auto=format&fit=crop&q=80&w=400" 
+            <img
+              src="https://images.unsplash.com/photo-1577891772227-d263f5e3c973?auto=format&fit=crop&q=80&w=400"
               alt="Classroom"
               className="w-full h-full object-cover opacity-40 group-hover:opacity-100 transition-opacity duration-500 scale-110"
             />
           </div>
-          
+
           <div className="absolute bottom-3 left-3 z-20">
             <p className="text-[9px] md:text-[11px] text-cyan-400 font-black uppercase tracking-widest">Classroom Live</p>
           </div>

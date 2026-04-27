@@ -33,29 +33,29 @@ class ClassroomService:
     # Session lifecycle
     # ------------------------------------------------------------------
 
-    def get_session_summary(self) -> dict:
+    async def get_session_summary(self) -> dict:
         """Return the current session state enriched with live data."""
-        session = self.store.load()
-        session["students_connected"] = _student_tracker.count()
+        session = await self.store.load()
+        session["students_connected"] = await _student_tracker.count()
         session["assistant_state"] = _state_machine.current
         session["allowed_transitions"] = _state_machine.allowed_transitions()
         return session
 
-    def update_session(self, payload: dict) -> dict:
+    async def update_session(self, payload: dict) -> dict:
         """Merge arbitrary session metadata updates.
 
         Skips None values. Coerces students_connected to non-negative int.
         Does NOT validate assistant_state transitions — use transition_state() instead.
         """
-        session = self.store.load()
+        session = await self.store.load()
         for key, value in payload.items():
             if value is None:
                 continue
             session[key] = value
         session["students_connected"] = max(int(session.get("students_connected", 0)), 0)
-        return self.store.save(session)
+        return await self.store.save(session)
 
-    def start_session(self, lesson_id: str) -> dict:
+    async def start_session(self, lesson_id: str) -> dict:
         """Start a new classroom session for the given lesson.
 
         - Loads slide count from SlideContentService
@@ -81,7 +81,7 @@ class ClassroomService:
         matches = [l for l in _slide_content.list_lessons() if l["id"] == lesson_id]
         lesson_title = matches[0]["title"] if matches else lesson_id
 
-        session = self.store.load()
+        session = await self.store.load()
         session.update({
             "mode": "lesson",
             "lesson_id": lesson_id,
@@ -90,21 +90,21 @@ class ClassroomService:
             "total_slides": total_slides,
             "projector": "lesson",
         })
-        self.store.save(session)
+        await self.store.save(session)
 
         # Transition state machine to teaching (force via reset then transition)
         _state_machine.reset()
         _state_machine.transition("teaching")
 
-        _event_log.log("session_started", {
+        await _event_log.log("session_started", {
             "lesson_id": lesson_id,
             "lesson": lesson_title,
             "total_slides": total_slides,
         })
 
-        return self.get_session_summary()
+        return await self.get_session_summary()
 
-    def end_session(self) -> dict:
+    async def end_session(self) -> dict:
         """End the current classroom session.
 
         - Clears student roster
@@ -112,12 +112,12 @@ class ClassroomService:
         - Transitions assistant_state → done → ready
         - Logs session_ended event
         """
-        session = self.store.load()
+        session = await self.store.load()
         session["projector"] = "standby"
         session["mode"] = "demo"
-        self.store.save(session)
+        await self.store.save(session)
 
-        _student_tracker.clear()
+        await _student_tracker.clear()
 
         # Transition to done then ready
         if _state_machine.current != "done":
@@ -127,15 +127,15 @@ class ClassroomService:
                 _state_machine.reset()
         _state_machine.transition("ready") if _state_machine.current == "done" else None
 
-        _event_log.log("session_ended", {"lesson": session.get("lesson", "")})
+        await _event_log.log("session_ended", {"lesson": session.get("lesson", "")})
 
-        return self.get_session_summary()
+        return await self.get_session_summary()
 
     # ------------------------------------------------------------------
     # Student management
     # ------------------------------------------------------------------
 
-    def connect_student(self, name: str) -> dict:
+    async def connect_student(self, name: str) -> dict:
         """Register a student as connected to the session.
 
         Args:
@@ -144,14 +144,14 @@ class ClassroomService:
         Returns:
             Student info dict plus updated session students_connected count.
         """
-        result = _student_tracker.connect(name)
-        session = self.store.load()
-        session["students_connected"] = _student_tracker.count()
-        self.store.save(session)
-        _event_log.log("student_joined", {"name": name})
+        result = await _student_tracker.connect(name)
+        session = await self.store.load()
+        session["students_connected"] = await _student_tracker.count()
+        await self.store.save(session)
+        await _event_log.log("student_joined", {"name": name})
         return result
 
-    def disconnect_student(self, name: str) -> dict:
+    async def disconnect_student(self, name: str) -> dict:
         """Remove a student from the session roster.
 
         Args:
@@ -163,25 +163,25 @@ class ClassroomService:
         Raises:
             ValueError: If student is not in roster.
         """
-        result = _student_tracker.disconnect(name)
-        session = self.store.load()
-        session["students_connected"] = _student_tracker.count()
-        self.store.save(session)
-        _event_log.log("student_left", {"name": name})
+        result = await _student_tracker.disconnect(name)
+        session = await self.store.load()
+        session["students_connected"] = await _student_tracker.count()
+        await self.store.save(session)
+        await _event_log.log("student_left", {"name": name})
         return result
 
-    def get_students(self) -> dict:
+    async def get_students(self) -> dict:
         """Return current student roster and count."""
         return {
-            "count": _student_tracker.count(),
-            "students": _student_tracker.roster(),
+            "count": await _student_tracker.count(),
+            "students": await _student_tracker.roster(),
         }
 
     # ------------------------------------------------------------------
     # Assistant state management
     # ------------------------------------------------------------------
 
-    def transition_state(self, target: str) -> dict:
+    async def transition_state(self, target: str) -> dict:
         """Transition the assistant state machine to target.
 
         Args:
@@ -196,11 +196,11 @@ class ClassroomService:
         previous = _state_machine.current
         new_state = _state_machine.transition(target)
 
-        session = self.store.load()
+        session = await self.store.load()
         session["assistant_state"] = new_state
-        self.store.save(session)
+        await self.store.save(session)
 
-        _event_log.log("assistant_state_changed", {
+        await _event_log.log("assistant_state_changed", {
             "from": previous,
             "to": new_state,
         })
@@ -215,7 +215,7 @@ class ClassroomService:
     # Event log
     # ------------------------------------------------------------------
 
-    def get_events(self, n: int = 20) -> dict:
+    async def get_events(self, n: int = 20) -> dict:
         """Return recent classroom events.
 
         Args:
@@ -225,8 +225,8 @@ class ClassroomService:
             Dict with total count and list of recent events.
         """
         return {
-            "total": _event_log.count(),
-            "events": _event_log.recent(n),
+            "total": await _event_log.count(),
+            "events": await _event_log.recent(n),
         }
 
 
@@ -234,7 +234,7 @@ class ClassroomService:
 # Module-level helper for WebSocket route (Phase 10)
 # ---------------------------------------------------------------------------
 
-def get_classroom_state() -> dict:
+async def get_classroom_state() -> dict:
     """Return a lightweight classroom state snapshot for WebSocket broadcast.
 
     ใช้ module-level singletons โดยตรง เพื่อไม่ต้อง instantiate ClassroomService
@@ -248,7 +248,7 @@ def get_classroom_state() -> dict:
 
     try:
         store = ClassroomSessionStore(get_settings().classroom_state_path)
-        session = store.load()
+        session = await store.load()
     except Exception:
         session = {}
 
@@ -256,7 +256,7 @@ def get_classroom_state() -> dict:
         "assistant_state": _state_machine.current,
         "allowed_transitions": _state_machine.allowed_transitions(),
         "projector": session.get("projector", "standby"),
-        "students_connected": _student_tracker.count(),
+        "students_connected": await _student_tracker.count(),
         "mode": session.get("mode", "demo"),
         "lesson": session.get("lesson", ""),
         "current_slide": session.get("current_slide", 1),

@@ -4,11 +4,12 @@ Provides tools for teachers to create briefing docs, FAQs, and study guides
 strictly from provided sources.
 """
 
+import httpx
 import logging
 import re
 from typing import List, Dict, Any, Optional
-from namo_core.services.reasoning.reasoner import ReasoningService
 from namo_core.services.knowledge.knowledge_service import ContextBuilder
+from namo_core.config.settings import get_settings
 
 from sqlalchemy.orm import Session
 from namo_core.database.models import Notebook, NotebookSource, NotebookContent, Teacher, NotebookAuditLog, NotebookJob
@@ -18,8 +19,42 @@ logger = logging.getLogger(__name__)
 class NotebookService:
     def __init__(self, db: Session = None):
         self.db = db
-        self.reasoner = ReasoningService()
         self.context_builder = ContextBuilder()
+
+    def _call_groq_sync(self, prompt: str) -> str:
+        """เรียก Groq API แบบ Synchronous โดยตรง (ปลอดภัยใน BackgroundTask thread)"""
+        settings = get_settings()
+        api_key = settings.reasoning_api_key.strip() if settings.reasoning_api_key else None
+        base_url = settings.reasoning_api_base_url or "https://api.groq.com/openai/v1"
+        model = settings.reasoning_model or "llama-3.3-70b-versatile"
+        timeout = settings.reasoning_timeout_seconds or 60.0
+
+        if not api_key:
+            logger.warning("No API key configured, returning mock response")
+            return f"[Mock Response] ไม่มี API Key กรุณาตั้งค่า NAMO_REASONING_API_KEY ใน .env"
+
+        try:
+            with httpx.Client(timeout=timeout) as client:
+                response = client.post(
+                    f"{base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}".strip(),
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"].strip()
+        except httpx.TimeoutException:
+            logger.error("Groq API timed out after %s seconds", timeout)
+            return f"[Error] Groq API ตอบกลับช้าเกินไป (Timeout {timeout}s)"
+        except Exception as exc:
+            logger.error("Groq API call failed: %s", exc)
+            return f"[Error] เกิดข้อผิดพลาด: {exc}"
 
     def audit_log(self, teacher_id: int, action: str, notebook_id: int = None, instruction: str = None, ip: str = None):
         """บันทึกประวัติการใช้งานเพื่อความปลอดภัย"""
@@ -150,8 +185,8 @@ class NotebookService:
             f"{context}\n"
             "------------------\n"
         )
-        result = self.reasoner.chat([{"role": "user", "content": prompt}])
-        return {"title": "Briefing Doc", "content": result.get("answer", ""), "source_count": len(sources)}
+        content = self._call_groq_sync(prompt)
+        return {"title": "Briefing Doc", "content": content, "source_count": len(sources)}
 
     def generate_faq_study_guide(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
@@ -164,8 +199,8 @@ class NotebookService:
             "--- แหล่งข้อมูล ---\n"
             f"{context}\n"
         )
-        result = self.reasoner.chat([{"role": "user", "content": prompt}])
-        return {"title": "Study Guide & FAQ", "content": result.get("answer", ""), "source_count": len(sources)}
+        content = self._call_groq_sync(prompt)
+        return {"title": "Study Guide & FAQ", "content": content, "source_count": len(sources)}
 
     def generate_audio_overview_script(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
@@ -175,7 +210,7 @@ class NotebookService:
             f"คำสั่งพิเศษ: {instr}\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        result = self.reasoner.chat([{"role": "user", "content": prompt}])
+        result = asyncio.run(self.reasoner.explain(prompt))
         return {"title": "Audio Overview Script", "content": result.get("answer", ""), "source_count": len(sources)}
 
     def generate_flashcards(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
@@ -187,8 +222,8 @@ class NotebookService:
             "รูปแบบ:\nFlashcard #[ตัวเลข]\nด้านหน้า: [คำถาม]\nด้านหลัง: [คำตอบ]\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        result = self.reasoner.chat([{"role": "user", "content": prompt}])
-        return {"title": "Flashcards", "content": result.get("answer", ""), "source_count": len(sources)}
+        content = self._call_groq_sync(prompt)
+        return {"title": "Flashcards", "content": content, "source_count": len(sources)}
 
     def generate_quiz(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
@@ -199,5 +234,5 @@ class NotebookService:
             "รูปแบบ:\nข้อที่ [ตัวเลข]: [โจทย์]\nก) ... ข) ... ค) ... ง) ...\nเฉลย: [คำตอบ] เพราะ [เหตุผล]\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        result = self.reasoner.chat([{"role": "user", "content": prompt}])
-        return {"title": "Quiz", "content": result.get("answer", ""), "source_count": len(sources)}
+        content = self._call_groq_sync(prompt)
+        return {"title": "Quiz", "content": content, "source_count": len(sources)}

@@ -1,4 +1,6 @@
-from functools import lru_cache
+import os
+import asyncio
+import logging
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,7 +16,7 @@ class Settings(BaseSettings):
     env: str = "development"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173,*"  # อนุญาต Wildcard เพื่อรองรับ Dynamic LAN IP ของ Tablet
     classroom_state_file: str | None = None
     device_mode: str = "mock"
     allow_mock_devices: bool = True
@@ -36,9 +38,11 @@ class Settings(BaseSettings):
     reasoning_api_key: str | None = None
     system_secret: str = "MUST_BE_SET_IN_ENV"
 
-    # Database Configuration (Phase 12)
-    # Support for PostgreSQL: postgresql://user:pass@host:port/db
+    # Database Configuration (Phase 12 / Phase 3 Persistent Layer)
     database_url: str = "sqlite:///./namo_classroom.db"
+    database_password: str | None = None
+    redis_url: str | None = None
+    redis_password: str | None = None
 
     # Security Configuration (Phase 13)
     jwt_secret_key: str = "MUST_BE_SET_IN_ENV"
@@ -116,6 +120,28 @@ class Settings(BaseSettings):
         return self.data_root / "classroom_session.json"
 
 
-@lru_cache
+_settings_instance: Settings | None = None
+
+
 def get_settings() -> Settings:
-    return Settings()
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+
+        # Phase 9: Enterprise Security - Auto-load GCP Secrets
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            logger = logging.getLogger(__name__)
+            logger.info("GCP credentials detected. Connecting to Secret Manager...")
+            from namo_core.utils.gcp_secrets import load_all_secrets
+
+            try:
+                loop = asyncio.get_running_loop()
+                logger.warning(
+                    "Running in active loop. GCP secrets loading in background."
+                )
+                loop.create_task(load_all_secrets())
+            except RuntimeError:
+                # No running event loop, safe to run synchronously
+                asyncio.run(load_all_secrets())
+
+    return _settings_instance
