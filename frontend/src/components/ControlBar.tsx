@@ -1,4 +1,4 @@
-import { Power, Mic, MicOff, Trash2, Globe } from 'lucide-react';
+import { LucideIcon, Power, Mic, MicOff, Trash2, Globe } from 'lucide-react';
 import type { NamoStatus } from '../hooks/useNamoSocket';
 
 interface ControlBarProps {
@@ -82,7 +82,7 @@ function ControlButton({
   danger, 
   disabled 
 }: { 
-  icon: any, 
+  icon: LucideIcon, 
   active?: boolean, 
   onClick: () => void, 
   label: string,
