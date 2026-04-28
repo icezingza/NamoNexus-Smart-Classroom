@@ -1,0 +1,109 @@
+# Changelog
+
+All notable changes to **NamoNexus Smart Classroom** will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [5.0.0] - 2026-04-27 — Sovereign Edition
+
+### Added
+- **P11Q — Tripitaka Quality Audit Layer**
+  - `scripts/audit_knowledge_vectors.py`: audit script สำหรับตรวจสอบ chunk quality
+  - `scripts/tripitaka_quality_filter.py`: reusable Hard/Soft filter module
+  - `scripts/master_ingestion.py`: updated ingestion entrypoint รองรับ Hard/Soft filter pre-processing และ `--dry-run` flag
+  - Hard Filter: drop `empty`, `html_leak`, `footer_contact`, `separator_line`
+  - Soft Filter: merge `suspected_fragment` กลับเข้า adjacent context เมื่อ chunk lineage/title ตรงกัน
+  - Down-rank strategy สำหรับ: `section_heading`, `section_closure`, `numbered_list_or_plan`, `summary_note`, `verse_or_formula_line`
+
+- **SEC — GCP Secret Manager Integration**
+  - `backend/namo_core/utils/gcp_secrets.py`: Secret Manager client utility
+  - `backend/namo_core/config/settings.py`: startup wiring เชื่อม Secret Manager กับ config layer
+
+- **OPS — Runtime Health Check System**
+  - `scripts/health_check.py`: ผ่าน 16/16 checks ครอบคลุม API server, knowledge search, FAISS index, classroom session, slide controller, emotion state, TTS, และ PII hashing
+  - UTF-8 stdout handling สำหรับ Windows console
+
+- **LAN — Vite Network Stability**
+  - `vite.config.ts` ตั้งค่า `host: true` สำหรับ LAN accessibility
+  - Dynamic hostname resolution ผ่าน `window.location.hostname` ใน browser runtime
+  - CORS + Heartbeat stability สำหรับ demo environment
+
+- **P4 — Notebook System (Saturate Wisdom)**
+  - `backend/namo_core/api/routes/notebook.py`: Notebook API routes ลงทะเบียนใน FastAPI app
+  - `suggest-sources` endpoint: ค้นหา Tripitaka sources สำหรับ notebook generation
+  - 5 notebook modes: `สรุปเตรียมสอน`, `คู่มือ & FAQ`, `บทละครเสียง`, `บัตรคำ`, `ควิซวัดผล`
+  - `SATURATE WISDOM` generation flow พร้อม bypass token verification
+
+### Changed
+- **FAISS Knowledge Base**: อัปเดตจาก `162,895` vectors (legacy) เป็น `168,861` vectors (dim `384`, ~239 MB)
+  - Production metadata: `knowledge/tripitaka_main/tripitaka_metadata.json` — `168,861` chunk records
+  - FAISS index path: `knowledge/tripitaka_main/tripitaka_index.faiss`
+- **P13 — JWT Auth Middleware**: เพิ่ม Sovereign bypass สำหรับ internal service calls
+- **`backend/namo_core/api/routes/status.py`**: เปลี่ยนเป็น `async def status()` และ await `classroom.get_session_summary()` — แก้ไข HTTP 500 บน status endpoint
+
+### Fixed
+- Orchestrator lazy-loading: แก้ไข memory leak 949 MB จากการ load model ซ้ำ
+- Status endpoint HTTP 500: เกิดจาก sync call ใน async context
+- Unicode console rendering บน Windows ใน health check script
+
+### Knowledge Audit Snapshot (2026-04-27)
+| Metric | Value |
+|---|---|
+| Total chunk records | 168,861 |
+| Average chunk length | 619.25 chars |
+| Empty chunks | 0 |
+| HTML leak chunks | 0 |
+| Short chunks (< 50 chars) | 2,726 |
+| Hard-dropped records | 451 |
+| Soft-merged fragments | 1,496 |
+| Total issues addressed | 1,947 (71.42% of short chunks, 1.15% of corpus) |
+
+### Runtime Health Snapshot (2026-04-27)
+- Health check: `16/16` passed via `scripts/health_check.py`
+- FAISS index: `168,861` vectors confirmed at runtime
+- Knowledge search: returned `3` items
+- Classroom lessons loaded: `1`
+- Emotion state: `focused`
+
+---
+
+## [1.0.0] - 2026-04-21 — Enterprise Production Ready
+
+### Added
+- **P9 — Cloudflare Tunnel**: Public WSS endpoint ที่ `api.namonexus.com`
+- **P10 — Dual-Screen Frontend**: TypeScript + Shadcn UI, routing `/teacher` และ `/display`
+- **P11 — FAISS Knowledge Base**: 162,895 vectors จาก Theravada Tripitaka (legacy baseline)
+- **P12 — SQLite + SemanticCache**: Persistent layer fallback + semantic cache seed + script path fixes
+- **P13 — JWT Auth Middleware**: WebSocket token flow + enterprise authentication
+- **P2 — Deep Async Refactor**: Backend 100% async ด้วย `asyncio.to_thread` และ `aiofiles`
+- **P3 — Persistent Layer**: Redis (State/PubSub), PostgreSQL/Cloud SQL path สำหรับ cloud rollout
+- Watchdog auto-restart พร้อม stress test (97% success rate)
+- `upload_to_gcs.py`: GCS bucket auto-create + MD5 integrity check
+- Hybrid Cloud architecture: GitHub (code) + GCS `namo-classroom-models` (models) + Local (secrets)
+- GCP Project `namo-classroom` (region: `asia-southeast1`): Cloud SQL, Memorystore, Secret Manager
+- WebSocket real-time stream + Redis Pub/Sub (latency < 50ms)
+- React 18 + Vite frontend ที่ `namonexus.com`
+
+### Security
+- เพิ่ม GCS key files เข้า `.gitignore` เพื่อป้องกัน credential leaks
+- ห้าม hardcode connection string — ดึงผ่าน Secret Manager เท่านั้น
+
+---
+
+## Architectural Rules (v5.0.0)
+
+| Rule | Detail |
+|---|---|
+| Port Standard | `8000` (Backend), `5173` (Frontend Local) |
+| Async Integrity | ห้ามใช้ blocking sync I/O ใน endpoint ใหม่ |
+| Secret Security | ดึง secrets ผ่าน GCP Secret Manager เท่านั้น |
+| Fallback Logic | WebSocket ต้องมี HTTP Polling fallback (Graceful Degradation) |
+| RAG Quality Gate | ต้องผ่าน Hard/Soft filter ก่อน embed Tripitaka รอบใหม่ทุกครั้ง |
+
+---
+
+[5.0.0]: https://gitlab.com/namonexus2/NamoNexus-Smart-Classroom/-/compare/v1.0.0...v5.0.0
+[1.0.0]: https://gitlab.com/namonexus2/NamoNexus-Smart-Classroom/-/commits/main
