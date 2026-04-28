@@ -34,33 +34,34 @@ export function useNamoSocket(wsUrl: string | null) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1000);
-  const heartbeatRef = useRef<any>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
   const intentRef = useRef(false);
-  const reconnectRef = useRef<any>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectRef = useRef<() => void>(() => {});
 
-  const stopHeartbeat = () => {
+  const stopHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
     }
-  };
+  }, []);
 
-  const startHeartbeat = (ws: WebSocket) => {
+  const startHeartbeat = useCallback((ws: WebSocket) => {
     stopHeartbeat();
     heartbeatRef.current = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send("ping");
       }
     }, HEARTBEAT_MS);
-  };
+  }, [stopHeartbeat]);
 
-  const clearReconnect = () => {
+  const clearReconnect = useCallback(() => {
     if (reconnectRef.current) {
       clearTimeout(reconnectRef.current);
       reconnectRef.current = null;
     }
-  };
+  }, []);
 
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
@@ -107,7 +108,10 @@ export function useNamoSocket(wsUrl: string | null) {
           setStatus("disconnected");
           const delay = backoffRef.current;
           backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
-          reconnectRef.current = setTimeout(connect, delay);
+          
+          reconnectRef.current = setTimeout(() => {
+            connectRef.current();
+          }, delay);
         } else {
           setStatus("idle");
         }
@@ -116,7 +120,12 @@ export function useNamoSocket(wsUrl: string | null) {
       setStatus("error");
       console.error("WS Connection Error:", err);
     }
-  }, [wsUrl]);
+  }, [wsUrl, startHeartbeat, stopHeartbeat, clearReconnect]);
+
+  // Keep connectRef up to date
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     intentRef.current = false;
@@ -131,7 +140,7 @@ export function useNamoSocket(wsUrl: string | null) {
     } else {
       setStatus("idle");
     }
-  }, []);
+  }, [clearReconnect, stopHeartbeat]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -145,7 +154,7 @@ export function useNamoSocket(wsUrl: string | null) {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [clearReconnect, stopHeartbeat]);
 
   return { data, status, connect, disconnect };
 }

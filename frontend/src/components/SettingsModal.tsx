@@ -155,7 +155,16 @@ function ModeTab({ active, label, onClick }: { active: boolean, label: string, o
   );
 }
 
-function Field({ label, value, onChange, placeholder, type = "text", icon }: any) {
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  icon?: React.ReactNode;
+}
+
+function Field({ label, value, onChange, placeholder, type = "text", icon }: FieldProps) {
   return (
     <div className="space-y-2">
       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
