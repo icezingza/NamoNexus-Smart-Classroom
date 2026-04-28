@@ -1,4 +1,6 @@
-from functools import lru_cache
+import os
+import asyncio
+import logging
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,7 +16,7 @@ class Settings(BaseSettings):
     env: str = "development"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173,*"  # อนุญาต Wildcard เพื่อรองรับ Dynamic LAN IP ของ Tablet
     classroom_state_file: str | None = None
     device_mode: str = "mock"
     allow_mock_devices: bool = True
@@ -23,26 +25,31 @@ class Settings(BaseSettings):
     reasoning_timeout_seconds: float = 30.0
     reasoning_allow_mock_fallback: bool = True
     reasoning_system_prompt: str = (
-        "คุณคือ 'นะโม' AI Gen Z ที่ตรงไปตรงมา "
-        "จงตอบคำถามผู้ใช้โดยอิงจาก 'ข้อมูลอ้างอิง' ด้านบนเป็นหลัก "
-        "หากข้อมูลไม่เกี่ยว ให้บอกตรงๆ ว่าไม่รู้ "
-        "ห้ามเดาข้อมูลธรรมะเองเด็ดขาด "
-        "และ 'ต้อง' ตอบด้วยภาษาพูดแบบวัยรุ่นวัยทำงาน "
-        "ไม่ใช้ภาษาโบราณหรือสวดบาลีใส่ผู้ใช้"
+        "คุณคือ 'นะโม' (NamoNexus) ปัญญาประดิษฐ์ผู้รอบรู้พระไตรปิฎกเถรวาท "
+        "ทำหน้าที่เป็นกัลยาณมิตรและครูผู้ใจดีสำหรับเด็กและเยาวชน\n\n"
+        "หลักการตอบ:\n"
+        "1. สำรวมและสุภาพ: แทนตนเองว่า 'พี่นะโม' หรือ 'นะโม' ใช้ภาษาสุภาพแต่เข้าถึงง่าย\n"
+        "2. อิงตามบริบท: ตอบคำถามโดยอิงจาก 'ข้อมูลอ้างอิง' (Tripitaka Context) ที่ได้รับมาเป็นหลัก\n"
+        "3. ย่อยง่ายสำหรับเด็ก: ใช้การอุปมาอุปไมยหรือตัวอย่างจากนิทานชาดกเพื่อให้เข้าใจง่าย\n"
+        "4. ระบุที่มาเสมอ: เมื่อยกพุทธพจน์ ต้องบอกเลขเล่มและหัวข้อเสมอ (เช่น พระไตรปิฎก เล่ม 25 ข้อ 5)\n"
+        "5. ซื่อสัตย์: หากไม่มีในบริบทธรรมะที่ส่งไป ให้บอกตรงๆ ว่าไม่รู้ และให้ข้อคิดจริยธรรมสากลแทน"
     )
     reasoning_api_base_url: str | None = None
     reasoning_api_key: str | None = None
-    system_secret: str = "NamoSovereignToken2026"
+    system_secret: str = "MUST_BE_SET_IN_ENV"
 
-    # Database Configuration (Phase 12)
+    # Database Configuration (Phase 12 / Phase 3 Persistent Layer)
     database_url: str = "sqlite:///./namo_classroom.db"
+    database_password: str | None = None
+    redis_url: str | None = None
+    redis_password: str | None = None
 
     # Security Configuration (Phase 13)
-    jwt_secret_key: str = "CHANGE_ME"
+    jwt_secret_key: str = "MUST_BE_SET_IN_ENV"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
     admin_username: str = "teacher"
-    admin_password: str = "password123"
+    admin_password: str = "MUST_BE_SET_IN_ENV"
 
     # Speech-to-text configuration
     speech_provider: str = "mock"  # "mock" | "whisper-local"
@@ -113,6 +120,28 @@ class Settings(BaseSettings):
         return self.data_root / "classroom_session.json"
 
 
-@lru_cache
+_settings_instance: Settings | None = None
+
+
 def get_settings() -> Settings:
-    return Settings()
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+
+        # Phase 9: Enterprise Security - Auto-load GCP Secrets
+        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+            logger = logging.getLogger(__name__)
+            logger.info("GCP credentials detected. Connecting to Secret Manager...")
+            from namo_core.utils.gcp_secrets import load_all_secrets
+
+            try:
+                loop = asyncio.get_running_loop()
+                logger.warning(
+                    "Running in active loop. GCP secrets loading in background."
+                )
+                loop.create_task(load_all_secrets())
+            except RuntimeError:
+                # No running event loop, safe to run synchronously
+                asyncio.run(load_all_secrets())
+
+    return _settings_instance

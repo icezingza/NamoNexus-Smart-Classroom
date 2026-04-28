@@ -10,21 +10,42 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 
 @router.get("/search")
-def search_knowledge(q: str = Query("", description="Search query", max_length=500)) -> dict:
+def search_knowledge(
+    q: str = Query("", description="Search query", max_length=500),
+) -> dict:
     """ค้นหาใน Knowledge Base เดิม (materials + lesson plans) — Phase 1-8"""
-    service = KnowledgeService()
-    results = service.search(q)
+
+    try:
+        service = KnowledgeService()
+        results = service.search(q)
+        if results is None:
+            safe_results = []
+        elif isinstance(results, dict):
+            safe_results = results.get("retrieved_docs", [])
+        else:
+            safe_results = list(results)
+
+        context_data = service.build_context(q)
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).error(f"Knowledge search failed: {exc}")
+        safe_results = []
+        context_data = ""
+
     return {
         "query": q,
-        "count": len(results),
-        "results": results,
-        "context": service.build_context(q),
+        "count": len(safe_results),
+        "results": safe_results,
+        "context": context_data,
     }
 
 
 @router.get("/tripitaka/search")
 def search_tripitaka_endpoint(
-    q: str = Query(..., description="คำถามภาษาไทย/บาลี/อังกฤษ", min_length=1, max_length=500),
+    q: str = Query(
+        ..., description="คำถามภาษาไทย/บาลี/อังกฤษ", min_length=1, max_length=500
+    ),
     top_k: int = Query(3, description="จำนวน Chunks ที่ต้องการ (1-10)", ge=1, le=10),
 ) -> dict:
     """
@@ -42,10 +63,10 @@ def search_tripitaka_endpoint(
     results = search_tripitaka(q, top_k=top_k)
     retriever = get_tripitaka_retriever()
     return {
-        "query":          q,
-        "top_k":          top_k,
-        "count":          len(results),
-        "results":        results,
+        "query": q,
+        "top_k": top_k,
+        "count": len(results),
+        "results": results,
         "retriever_info": retriever.describe(),
     }
 
@@ -55,4 +76,3 @@ def tripitaka_index_status() -> dict:
     """ตรวจสอบสถานะ FAISS Tripitaka Index — ใช้ใน /health check"""
     retriever = get_tripitaka_retriever()
     return retriever.describe()
-
