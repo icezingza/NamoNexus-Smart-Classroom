@@ -25,6 +25,11 @@ stress_test_*.json
 .DS_Store
 Thumbs.db
  
-# GCS key files 
-scripts/.gcs_key.json 
-*.gcs_key.json 
+# GCS / GCP key files
+scripts/.gcs_key.json
+*.gcs_key.json
+namo-classroom-*.json
+
+# Runtime SQLite database (contains session data / cached secrets)
+backend/namo_classroom.db
+*.db
