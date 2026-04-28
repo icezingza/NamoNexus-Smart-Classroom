@@ -11,4 +11,9 @@ openai-whisper
 faster-whisper>=1.0.0
 sounddevice
 edge-tts>=6.6.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+PyJWT>=2.8.0
 pytest>=8.0.0
+google-cloud-secret-manager>=2.20.0
+redis>=5.0.0

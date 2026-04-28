@@ -226,3 +226,27 @@ def test_rag_empty_result_fallback(
     # 4. Verify ReasoningService was called with an empty list for context_docs
     mock_reasoning_service.get_response.assert_called_with(query=query, context_docs=[])
     print("\nSuccessfully tested RAG empty result scenario.")
+
+
+def test_reasoning_api_error_handling(
+    mock_reasoning_service,
+):
+    """
+    Test the system's behavior when the external API (e.g., LLM provider)
+    returns an error like HTTP 503 Service Unavailable.
+    """
+    query = "อธิบายหลักธรรมให้ฟังหน่อย"
+
+    # 1. ใช้ side_effect เพื่อจำลองให้ Mock โยน Exception ทันทีที่ถูกเรียกใช้งาน
+    mock_reasoning_service.get_response.side_effect = Exception(
+        "HTTP 503: Service Unavailable"
+    )
+
+    # 2. ใช้ pytest.raises เพื่อคาดหวังว่าโค้ดบล็อกนี้จะต้องมี Exception เกิดขึ้น
+    with pytest.raises(Exception) as exc_info:
+        mock_reasoning_service.get_response(query=query, context_docs=[])
+
+    # 3. ตรวจสอบว่า Exception ที่ระบบพ่นออกมา มีข้อความแจ้งเตือนที่ถูกต้อง
+    assert "503" in str(exc_info.value)
+    assert "Service Unavailable" in str(exc_info.value)
+    print("\nSuccessfully tested API Error (503) handling.")

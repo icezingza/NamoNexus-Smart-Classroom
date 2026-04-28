@@ -1,0 +1,1133 @@
+{
+  "metadata_path": "C:\\Users\\icezi\\NamoNexus-Smart-Classroom\\knowledge\\tripitaka_main\\tripitaka_metadata.json",
+  "total_chunks": 168861,
+  "average_chars_per_chunk": 619.25,
+  "empty_chunks": 0,
+  "short_chunk_threshold": 50,
+  "short_chunks": 2726,
+  "html_leak_chunks": 0,
+  "semantic_category_counts": {
+    "suspected_fragment": 1496,
+    "meaningful_content": 436,
+    "meaningful_structural": 414,
+    "artifact_noise": 380
+  },
+  "pattern_family_counts": {
+    "trailing_fragment": 944,
+    "other": 436,
+    "leading_fragment": 552,
+    "section_heading": 99,
+    "section_closure": 188,
+    "separator_line": 30,
+    "numbered_list_or_plan": 14,
+    "verse_or_formula_line": 111,
+    "summary_note": 2,
+    "footer_contact": 350
+  },
+  "flag_counts": {
+    "no_clean_sentence_end": 1584,
+    "chunk_index_gt_zero": 2713,
+    "contains_newline": 488,
+    "ends_with_dependent_mark": 262,
+    "starts_with_dependent_mark": 744,
+    "contains_structure_keyword": 101,
+    "separator_only": 30,
+    "looks_numbered_item": 33,
+    "looks_like_verse_or_formula": 139,
+    "contains_summary_keyword": 2,
+    "contains_footer_contact": 350,
+    "bracket_reference": 7
+  },
+  "length_bucket_counts": {
+    "10-19": 523,
+    "40-49": 631,
+    "30-39": 598,
+    "20-29": 532,
+    "01-09": 442
+  },
+  "samples_by_semantic_category": {
+    "suspected_fragment": [
+      {
+        "chunk_id": "v01_p0016_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 16",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 15,
+        "normalized_length": 15,
+        "text": "ลี้ยงนางนมประคบ",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0018_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 18",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 11,
+        "normalized_length": 11,
+        "text": "ปด้วยการถือ",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0053_c002",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 53",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 11,
+        "normalized_length": 11,
+        "text": "บัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0086_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 86",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 42,
+        "normalized_length": 41,
+        "text": "ยุดอยู่ ยินดี การถอนออก ต้องอาบัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0088_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 88",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 27,
+        "normalized_length": 27,
+        "text": "การถอนออก ต้องอาบัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "meaningful_content": [
+      {
+        "chunk_id": "v01_p0087_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 87",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 31,
+        "normalized_length": 30,
+        "text": "ดีการถอนออก ต้องอาบัติปาราชิก.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0264_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 264",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 18,
+        "normalized_length": 18,
+        "text": "กษุ เธอคิดอย่างไร?",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0267_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 267",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 1,
+        "normalized_length": 1,
+        "text": ".",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0272_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 272",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 16,
+        "normalized_length": 16,
+        "text": "บัติปาราชิกแล้ว.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0296_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 296",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 47,
+        "normalized_length": 46,
+        "text": "ษุนั้น เพราะเหตุนั้น จึงตรัสว่า หาสังวาสมิได้.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|chunk_index_gt_zero"
+      }
+    ],
+    "meaningful_structural": [
+      {
+        "chunk_id": "v01_p0258_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 258",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 37,
+        "normalized_length": 35,
+        "text": "ิ. ปฐมภาณวาร ในอทินนาทานสิกขาบท จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "contains_newline",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|contains_newline|starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0474_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 474",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 21,
+        "normalized_length": 21,
+        "text": "อุภโตพัทธมิสสจักร จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0274_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 274",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 25,
+        "normalized_length": 23,
+        "text": "บทที่ ๒ จบ. ___________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0372_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 372",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 23,
+        "normalized_length": 21,
+        "text": "ที่ ๗ จบ. ___________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0403_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 403",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 47,
+        "normalized_length": 47,
+        "text": "กเธอพึงยกสิกขาบทนี้ขึ้นแสดงอย่างนี้ ว่าดังนี้:-",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "artifact_noise": [
+      {
+        "chunk_id": "v01_p0504_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 504",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 17,
+        "normalized_length": 17,
+        "text": "_________________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0553_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 553",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 9,
+        "normalized_length": 9,
+        "text": "_________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0593_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 593",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 6,
+        "normalized_length": 6,
+        "text": "______",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0618_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 618",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 14,
+        "normalized_length": 14,
+        "text": "______________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v03_p0319_c001",
+        "title": "พระไตรปิฎก เล่ม 3 (ภิกขุณีวิภังค์) หน้า 319",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/03.zip",
+        "length": 25,
+        "normalized_length": 25,
+        "text": "_________________________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ]
+  },
+  "samples_by_pattern_family": {
+    "trailing_fragment": [
+      {
+        "chunk_id": "v01_p0016_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 16",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 15,
+        "normalized_length": 15,
+        "text": "ลี้ยงนางนมประคบ",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0018_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 18",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 11,
+        "normalized_length": 11,
+        "text": "ปด้วยการถือ",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0053_c002",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 53",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 11,
+        "normalized_length": 11,
+        "text": "บัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0086_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 86",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 42,
+        "normalized_length": 41,
+        "text": "ยุดอยู่ ยินดี การถอนออก ต้องอาบัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0088_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 88",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 27,
+        "normalized_length": 27,
+        "text": "การถอนออก ต้องอาบัติปาราชิก",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "trailing_fragment",
+        "flags": [
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "other": [
+      {
+        "chunk_id": "v01_p0087_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 87",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 31,
+        "normalized_length": 30,
+        "text": "ดีการถอนออก ต้องอาบัติปาราชิก.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0264_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 264",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 18,
+        "normalized_length": 18,
+        "text": "กษุ เธอคิดอย่างไร?",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0267_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 267",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 1,
+        "normalized_length": 1,
+        "text": ".",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0272_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 272",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 16,
+        "normalized_length": 16,
+        "text": "บัติปาราชิกแล้ว.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0296_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 296",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 47,
+        "normalized_length": 46,
+        "text": "ษุนั้น เพราะเหตุนั้น จึงตรัสว่า หาสังวาสมิได้.",
+        "semantic_category": "meaningful_content",
+        "pattern_family": "other",
+        "flags": [
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|chunk_index_gt_zero"
+      }
+    ],
+    "leading_fragment": [
+      {
+        "chunk_id": "v01_p0097_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 97",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 31,
+        "normalized_length": 31,
+        "text": "่องลาด ๑ ของหญิงไม่มีเครื่องลาด",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "leading_fragment",
+        "flags": [
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0203_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 203",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 30,
+        "normalized_length": 30,
+        "text": "่องลาด ของบัณเฑาะก์ก็มีเครื่อง",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "leading_fragment",
+        "flags": [
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0210_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 210",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 27,
+        "normalized_length": 27,
+        "text": "์ก็ไม่มีเครื่องลาด ๑ ถ้าเธอ",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "leading_fragment",
+        "flags": [
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0219_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 219",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 14,
+        "normalized_length": 14,
+        "text": "ัติสังฆาทิเสส.",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "leading_fragment",
+        "flags": [
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v01_p0231_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 231",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 21,
+        "normalized_length": 21,
+        "text": "ิง การเรื่องนี้ไม่ควร",
+        "semantic_category": "suspected_fragment",
+        "pattern_family": "leading_fragment",
+        "flags": [
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "section_heading": [
+      {
+        "chunk_id": "v01_p0258_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 258",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 37,
+        "normalized_length": 35,
+        "text": "ิ. ปฐมภาณวาร ในอทินนาทานสิกขาบท จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "contains_newline",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|contains_newline|starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0403_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 403",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 47,
+        "normalized_length": 47,
+        "text": "กเธอพึงยกสิกขาบทนี้ขึ้นแสดงอย่างนี้ ว่าดังนี้:-",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0511_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 511",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 25,
+        "normalized_length": 25,
+        "text": "าปานวรรค สิกขาบทที่ ๒ จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0686_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 686",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 32,
+        "normalized_length": 28,
+        "text": ". วรรคที่ ๔ จบ. ____________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v03_p0036_c002",
+        "title": "พระไตรปิฎก เล่ม 3 (ภิกขุณีวิภังค์) หน้า 36",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/03.zip",
+        "length": 48,
+        "normalized_length": 46,
+        "text": "ฆาทิเสสสิกขาบทที่ ๖ จบ. ______________________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_heading",
+        "flags": [
+          "contains_structure_keyword",
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_structure_keyword|contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "section_closure": [
+      {
+        "chunk_id": "v01_p0474_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 474",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 21,
+        "normalized_length": 21,
+        "text": "อุภโตพัทธมิสสจักร จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0372_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 372",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 23,
+        "normalized_length": 21,
+        "text": "ที่ ๗ จบ. ___________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0409_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 409",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 39,
+        "normalized_length": 36,
+        "text": "ะการ- ฉะนี้. เรื่องพระฉัพพัคคีย์ จบ.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "contains_newline",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v03_p0010_c002",
+        "title": "พระไตรปิฎก เล่ม 3 (ภิกขุณีวิภังค์) หน้า 10",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/03.zip",
+        "length": 26,
+        "normalized_length": 24,
+        "text": "จบ. ____________________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v03_p0031_c002",
+        "title": "พระไตรปิฎก เล่ม 3 (ภิกขุณีวิภังค์) หน้า 31",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/03.zip",
+        "length": 33,
+        "normalized_length": 31,
+        "text": "ี่ ๔ จบ. ______________________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "section_closure",
+        "flags": [
+          "contains_newline",
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_newline|starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "separator_line": [
+      {
+        "chunk_id": "v01_p0504_c003",
+        "title": "พระไตรปิฎก เล่ม 1 (มหาวิภังค์ ปฐมภาค) หน้า 504",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/01.zip",
+        "length": 17,
+        "normalized_length": 17,
+        "text": "_________________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0553_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 553",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 9,
+        "normalized_length": 9,
+        "text": "_________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0593_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 593",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 6,
+        "normalized_length": 6,
+        "text": "______",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v02_p0618_c002",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 618",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 14,
+        "normalized_length": 14,
+        "text": "______________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v03_p0319_c001",
+        "title": "พระไตรปิฎก เล่ม 3 (ภิกขุณีวิภังค์) หน้า 319",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/03.zip",
+        "length": 25,
+        "normalized_length": 25,
+        "text": "_________________________",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "separator_line",
+        "flags": [
+          "separator_only",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "separator_only|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "numbered_list_or_plan": [
+      {
+        "chunk_id": "v02_p0274_c001",
+        "title": "พระไตรปิฎก เล่ม 2 (มหาวิภังค์ ทุติยภาค) หน้า 274",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/02.zip",
+        "length": 25,
+        "normalized_length": 23,
+        "text": "บทที่ ๒ จบ. ___________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v07_p0098_c002",
+        "title": "พระไตรปิฎก เล่ม 7 (จุลวรรคภาค ๒) หน้า 98",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/07.zip",
+        "length": 34,
+        "normalized_length": 34,
+        "text": "๓. ไม่ถึงความลำเอียงเพราะความงมงาย",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v09_p0207_c002",
+        "title": "พระไตรปิฎก เล่ม 9 (ทีฆนิกาย สีลขันธวรรค) หน้า 207",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/09.zip",
+        "length": 19,
+        "normalized_length": 17,
+        "text": "๖. ______________",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "contains_newline",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|contains_newline|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v10_p0070_c003",
+        "title": "พระไตรปิฎก เล่ม 10 (ทีฆนิกาย มหาวรรค) หน้า 70",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/10.zip",
+        "length": 47,
+        "normalized_length": 47,
+        "text": "๑. พวกภิกษุจักเจริญสติสัมโพชฌงค์...., ๒. ...พวก",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v12_p0322_c003",
+        "title": "พระไตรปิฎก เล่ม 12 (มัชฌิมนิกาย มูลปัณณาสก์) หน้า 322",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/12.zip",
+        "length": 30,
+        "normalized_length": 30,
+        "text": "ข้อนั้นในความอยู่ด้วย ความหลง.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "numbered_list_or_plan",
+        "flags": [
+          "looks_numbered_item",
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_numbered_item|contains_newline|chunk_index_gt_zero"
+      }
+    ],
+    "verse_or_formula_line": [
+      {
+        "chunk_id": "v06_p0008_c002",
+        "title": "พระไตรปิฎก เล่ม 6 (จุลวรรคภาค ๑) หน้า 8",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/06.zip",
+        "length": 37,
+        "normalized_length": 37,
+        "text": "๑ ทำโดย ธรรม ๑ สงฆ์พร้อมเพรียงกันทำ ๑",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "verse_or_formula_line",
+        "flags": [
+          "looks_like_verse_or_formula",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_like_verse_or_formula|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v08_p0481_c002",
+        "title": "พระไตรปิฎก เล่ม 8 (ปริวาร) หน้า 481",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/08.zip",
+        "length": 38,
+        "normalized_length": 38,
+        "text": "มิใช่กาย มิใช่จิต ๑ บางทีเกิดแต่กายกับ",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "verse_or_formula_line",
+        "flags": [
+          "looks_like_verse_or_formula",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_like_verse_or_formula|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v12_p0261_c003",
+        "title": "พระไตรปิฎก เล่ม 12 (มัชฌิมนิกาย มูลปัณณาสก์) หน้า 261",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/12.zip",
+        "length": 27,
+        "normalized_length": 27,
+        "text": "ชรา มรณะ โสกะ ปริเทวะ ทุกข์",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "verse_or_formula_line",
+        "flags": [
+          "looks_like_verse_or_formula",
+          "ends_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_like_verse_or_formula|ends_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v12_p0347_c003",
+        "title": "พระไตรปิฎก เล่ม 12 (มัชฌิมนิกาย มูลปัณณาสก์) หน้า 347",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/12.zip",
+        "length": 24,
+        "normalized_length": 24,
+        "text": "มรณะ โสกะ ปริเทวะ โทมนัส",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "verse_or_formula_line",
+        "flags": [
+          "looks_like_verse_or_formula",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_like_verse_or_formula|no_clean_sentence_end|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "v15_p0012_c003",
+        "title": "พระไตรปิฎก เล่ม 15 (สังยุตตนิกาย สคาถวรรค) หน้า 12",
+        "source_url": "http://www.learntripitaka.com/TPD/Tripitaka-Thai/15.zip",
+        "length": 42,
+        "normalized_length": 42,
+        "text": "ู้มีอายุ เราละกามอันมีโดย กาลแล้ว วิ่งเข้า",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "verse_or_formula_line",
+        "flags": [
+          "looks_like_verse_or_formula",
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "looks_like_verse_or_formula|starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "summary_note": [
+      {
+        "chunk_id": "theol_03_06_p10101_c001",
+        "title": "นักธรรมเอก เล่มที่ 6 หน้า 10101",
+        "source_url": "http://www.learntripitaka.com/TPD/Theologina/03/06.zip",
+        "length": 23,
+        "normalized_length": 22,
+        "text": ". จบ สมถภานาโดยสังเขป.",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "summary_note",
+        "flags": [
+          "contains_summary_keyword",
+          "contains_newline",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_summary_keyword|contains_newline|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "theol_Content_01_14_p0011_c002",
+        "title": "แบบประกอบนักธรรมตรี เล่มที่ 14 หน้า 11",
+        "source_url": "http://www.learntripitaka.com/TPD/Theologina/Content_01/14.zip",
+        "length": 38,
+        "normalized_length": 37,
+        "text": "ามพระพุทธโอวาท สรุปลงได้ ๓ ประการ คือ",
+        "semantic_category": "meaningful_structural",
+        "pattern_family": "summary_note",
+        "flags": [
+          "contains_summary_keyword",
+          "contains_newline",
+          "starts_with_dependent_mark",
+          "no_clean_sentence_end",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_summary_keyword|contains_newline|starts_with_dependent_mark|no_clean_sentence_end|chunk_index_gt_zero"
+      }
+    ],
+    "footer_contact": [
+      {
+        "chunk_id": "attha_v01_i00281_c048",
+        "title": "อรรถกถา เล่ม 1 (มหาวิภังค์ ปฐมภาค) ข้อ 281",
+        "source_url": "https://84000.org/tipitaka/attha/attha.php?b=1&i=281",
+        "length": 44,
+        "normalized_length": 44,
+        "text": "ข้อผิดพลาด กรุณาแจ้งได้ที่ [email protected]",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "footer_contact",
+        "flags": [
+          "contains_footer_contact",
+          "looks_numbered_item",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_footer_contact|looks_numbered_item|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "attha_v02_i00527_c008",
+        "title": "อรรถกถา เล่ม 2 (มหาวิภังค์ ทุติยภาค) ข้อ 527",
+        "source_url": "https://84000.org/tipitaka/attha/attha.php?b=2&i=527",
+        "length": 25,
+        "normalized_length": 25,
+        "text": "งได้ที่ [email protected]",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "footer_contact",
+        "flags": [
+          "contains_footer_contact",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_footer_contact|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "attha_v02_i00623_c007",
+        "title": "อรรถกถา เล่ม 2 (มหาวิภังค์ ทุติยภาค) ข้อ 623",
+        "source_url": "https://84000.org/tipitaka/attha/attha.php?b=2&i=623",
+        "length": 27,
+        "normalized_length": 27,
+        "text": "จ้งได้ที่ [email protected]",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "footer_contact",
+        "flags": [
+          "contains_footer_contact",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_footer_contact|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "attha_v02_i00731_c009",
+        "title": "อรรถกถา เล่ม 2 (มหาวิภังค์ ทุติยภาค) ข้อ 731",
+        "source_url": "https://84000.org/tipitaka/attha/attha.php?b=2&i=731",
+        "length": 22,
+        "normalized_length": 22,
+        "text": "้ที่ [email protected]",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "footer_contact",
+        "flags": [
+          "contains_footer_contact",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_footer_contact|starts_with_dependent_mark|chunk_index_gt_zero"
+      },
+      {
+        "chunk_id": "attha_v02_i00744_c009",
+        "title": "อรรถกถา เล่ม 2 (มหาวิภังค์ ทุติยภาค) ข้อ 744",
+        "source_url": "https://84000.org/tipitaka/attha/attha.php?b=2&i=744",
+        "length": 22,
+        "normalized_length": 22,
+        "text": "้ที่ [email protected]",
+        "semantic_category": "artifact_noise",
+        "pattern_family": "footer_contact",
+        "flags": [
+          "contains_footer_contact",
+          "starts_with_dependent_mark",
+          "chunk_index_gt_zero"
+        ],
+        "flags_text": "contains_footer_contact|starts_with_dependent_mark|chunk_index_gt_zero"
+      }
+    ]
+  }
+}

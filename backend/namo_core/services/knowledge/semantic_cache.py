@@ -104,4 +104,55 @@ class SemanticCache:
 
         # LRU eviction: remove least recently used entry when cache is full
         if len(self.cache) >= self.max_size:
-            # Find index of entry with minimu
+            # Find index of entry with minimum last_accessed timestamp
+            min_idx = min(
+                range(len(self.cache)),
+                key=lambda i: self.cache[i].get("last_accessed", self.cache[i]["timestamp"])
+            )
+            self.cache.pop(min_idx)
+            self.embeddings.pop(min_idx)
+            logger.debug("[Semantic Cache] LRU eviction: removed least recently used entry")
+
+        self.cache.append(
+            {
+                "question": query_normalized,
+                "response": response,
+                "timestamp": current_time,
+                "last_accessed": current_time,
+            }
+        )
+        self.embeddings.append(embedding)
+
+        # Persist to database if callback is available
+        if _db_save_callback:
+            try:
+                _db_save_callback(query_normalized, response, embedding)
+            except Exception as e:
+                logger.warning(f"Failed to persist cache to DB: {e}")
+
+    def set_similarity_threshold(self, threshold: float):
+        """Adjust similarity threshold (0.0 to 1.0). Higher = more strict matching."""
+        if 0.0 <= threshold <= 1.0:
+            self.similarity_threshold = threshold
+            logger.info(f"[Semantic Cache] Similarity threshold set to {threshold}")
+        else:
+            logger.warning(f"Invalid threshold {threshold}. Must be between 0.0 and 1.0")
+
+    def set_ttl(self, seconds: int):
+        """Set Time-To-Live for cache entries in seconds."""
+        if seconds > 0:
+            self.ttl_seconds = seconds
+            logger.info(f"[Semantic Cache] TTL set to {seconds} seconds ({seconds // 3600}h)")
+        else:
+            logger.warning(f"Invalid TTL {seconds}. Must be > 0")
+
+
+def set_db_save_callback(callback: Callable):
+    """Register database persistence callback (called when cache entries are added)."""
+    global _db_save_callback
+    _db_save_callback = callback
+    logger.debug("Database persistence callback registered for semantic cache")
+
+
+# Global Singleton Instance
+query_cache = SemanticCache()

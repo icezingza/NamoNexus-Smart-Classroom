@@ -34,8 +34,10 @@ class GenerateRequest(BaseModel):
     )
 
 
+import asyncio
+
 @router.post("/speak")
-def speak(payload: SpeakRequest) -> dict:
+async def speak(payload: SpeakRequest) -> dict:
     """Synthesize text to speech — คืน JSON พร้อม audio_base64
 
     Returns structured metadata. `audio_base64` is non-null only when
@@ -44,7 +46,7 @@ def speak(payload: SpeakRequest) -> dict:
     """
     try:
         synthesizer = SpeechSynthesizer()
-        return synthesizer.speak(text=payload.text, voice=payload.voice)
+        return await asyncio.to_thread(synthesizer.speak, text=payload.text, voice=payload.voice)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -59,7 +61,7 @@ def speak(payload: SpeakRequest) -> dict:
         }
     },
 )
-def generate(payload: GenerateRequest) -> Response:
+async def generate(payload: GenerateRequest) -> Response:
     """สร้างไฟล์เสียง MP3 จากข้อความ — คืน raw binary ให้ client เล่นได้ทันที
 
     ใช้เสียง th-TH-PremwadeeNeural (นะโม) เป็น default
@@ -74,7 +76,7 @@ def generate(payload: GenerateRequest) -> Response:
     """
     try:
         synthesizer = SpeechSynthesizer()
-        result = synthesizer.speak(text=payload.text, voice=payload.voice)
+        result = await asyncio.to_thread(synthesizer.speak, text=payload.text, voice=payload.voice)
 
         if result.get("status") == "mock" or not result.get("audio_base64"):
             raise HTTPException(

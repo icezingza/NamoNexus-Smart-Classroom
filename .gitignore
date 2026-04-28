@@ -24,7 +24,19 @@ stress_test_*.json
 .pid
 .DS_Store
 Thumbs.db
- 
-# GCS key files 
-scripts/.gcs_key.json 
-*.gcs_key.json 
+
+# GCS / GCP key files
+scripts/.gcs_key.json
+*.gcs_key.json
+namo-classroom-*.json
+
+# Runtime SQLite database (contains session data / cached secrets)
+backend/namo_classroom.db
+*.db
+
+# Knowledge data (Sovereign Edge-only — too large for GitHub, stays on Lenovo)
+knowledge/full_tripitaka/
+knowledge/tripitaka_main/*.json
+knowledge/tripitaka_main/chunks/
+knowledge/tripitaka_main/chunks_deep/
+!knowledge/tripitaka_main/README.md

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Namo Core — System Health Check Script.
 Phase 8: Deployment
 
@@ -8,6 +9,7 @@ Run from the project root:
     python scripts/health_check.py --url http://192.168.1.100:8000
     python scripts/health_check.py --full   (runs full pipeline test)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -15,14 +17,20 @@ import json
 import sys
 import urllib.error
 import urllib.request
+import time
 from datetime import datetime
+import io
+
+# Force UTF-8 output on Windows
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Config
 # ─────────────────────────────────────────────────────────────────────────────
 
 DEFAULT_URL = "http://127.0.0.1:8000"
-TIMEOUT = 10  # seconds per request
+TIMEOUT = 30  # seconds per request
 
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -36,9 +44,12 @@ RESET = "\033[0m"
 # HTTP helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _get(url: str) -> tuple[int, dict]:
     try:
-        req = urllib.request.Request(url, headers={"Authorization": "Bearer header.payload.NamoSovereignToken2026"})
+        req = urllib.request.Request(
+            url, headers={"Authorization": "Bearer NamoSystemBypass2026-HealthCheck"}
+        )
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             body = json.loads(resp.read())
             return resp.status, body
@@ -51,7 +62,14 @@ def _get(url: str) -> tuple[int, dict]:
 def _post(url: str, data: dict) -> tuple[int, dict]:
     try:
         payload = json.dumps(data).encode()
-        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", "Authorization": "Bearer header.payload.NamoSovereignToken2026"})
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer NamoSystemBypass2026-HealthCheck",
+            },
+        )
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             body = json.loads(resp.read())
             return resp.status, body
@@ -69,6 +87,7 @@ def _post(url: str, data: dict) -> tuple[int, dict]:
 # Check functions
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def check(name: str, ok: bool, detail: str = "") -> bool:
     icon = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
     label = f"{GREEN}{name}{RESET}" if ok else f"{RED}{name}{RESET}"
@@ -84,7 +103,14 @@ def run_checks(base_url: str, full: bool = False) -> bool:
 
     # ── 1. Server reachable ───────────────────────────────────────────────────
     print(f"{BOLD}[Core]{RESET}")
-    status, body = _get(f"{base_url}/health")
+
+    # Add retry logic (HTTP 0 = Connection Refused/Timeout while server boots up)
+    for _ in range(5):
+        status, body = _get(f"{base_url}/health")
+        if status != 0:
+            break
+        time.sleep(1)
+
     results.append(check("API server reachable", status == 200, f"(HTTP {status})"))
 
     # ── 2. Status endpoint ────────────────────────────────────────────────────
@@ -100,10 +126,18 @@ def run_checks(base_url: str, full: bool = False) -> bool:
     # ── 4. Knowledge base ─────────────────────────────────────────────────────
     print(f"\n{BOLD}[Knowledge]{RESET}")
     status, body = _get(f"{base_url}/knowledge/search?q=dukkha")
-    results.append(check("Knowledge search", status == 200))
+    results.append(check("Knowledge search", status == 200, f"(HTTP {status})"))
     if status == 200:
         count = len(body.get("results", []))
         results.append(check(f"Knowledge results ({count} items)", count > 0))
+
+    status, body = _get(f"{base_url}/knowledge/tripitaka/status")
+    results.append(
+        check("Tripitaka FAISS Index status", status == 200, f"(HTTP {status})")
+    )
+    if status == 200:
+        vectors = body.get("vectors", 0)
+        results.append(check(f"Tripitaka vectors ({vectors:,} items)", vectors > 0))
 
     # ── 5. Classroom ──────────────────────────────────────────────────────────
     print(f"\n{BOLD}[Classroom]{RESET}")
@@ -152,13 +186,13 @@ def run_checks(base_url: str, full: bool = False) -> bool:
     _post(f"{base_url}/classroom/student/connect", {"name": test_pii_name})
     status, body = _get(f"{base_url}/classroom/students")
     roster = body.get("roster", []) if status == 200 else []
-    
+
     # Verify no plain-text match for "Somchai-PII-Secret"
     pii_safe = True
     for student in roster:
         if test_pii_name in student.get("name", ""):
             pii_safe = False
-    
+
     results.append(check("PII SHA-256 Hashing Enforced", pii_safe))
 
     # ── Summary ───────────────────────────────────────────────────────────────
@@ -179,6 +213,7 @@ def run_checks(base_url: str, full: bool = False) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Namo Core Health Check")

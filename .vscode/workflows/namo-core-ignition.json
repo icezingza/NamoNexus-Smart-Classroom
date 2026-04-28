@@ -1,0 +1,263 @@
+{
+  "id": "workflow-1777329594094",
+  "name": "namo-core-ignition",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "group-env",
+      "type": "group",
+      "name": "group-env",
+      "position": {
+        "x": 250,
+        "y": 150
+      },
+      "data": {
+        "label": "1. Infrastructure Audit"
+      },
+      "style": {
+        "width": 400,
+        "height": 450
+      }
+    },
+    {
+      "id": "group-validation",
+      "type": "group",
+      "name": "group-validation",
+      "position": {
+        "x": 700,
+        "y": 150
+      },
+      "data": {
+        "label": "2. Core Wisdom Validation"
+      },
+      "style": {
+        "width": 400,
+        "height": 450
+      }
+    },
+    {
+      "id": "group-healing",
+      "type": "group",
+      "name": "group-healing",
+      "position": {
+        "x": 1400,
+        "y": 450
+      },
+      "data": {
+        "label": "3. Auto-Healer (Rescue Mode)"
+      },
+      "style": {
+        "width": 400,
+        "height": 450
+      }
+    },
+    {
+      "id": "group-network",
+      "type": "group",
+      "name": "group-network",
+      "position": {
+        "x": 1400,
+        "y": -150
+      },
+      "data": {
+        "label": "4. Network & Gateway"
+      },
+      "style": {
+        "width": 400,
+        "height": 450
+      }
+    },
+    {
+      "id": "start-1",
+      "type": "start",
+      "name": "start-1",
+      "position": {
+        "x": 50,
+        "y": 350
+      },
+      "data": {
+        "label": "Start"
+      }
+    },
+    {
+      "id": "agent-env-check",
+      "type": "subAgent",
+      "name": "agent-env-check",
+      "position": {
+        "x": 50,
+        "y": 50
+      },
+      "data": {
+        "description": "Audit ports and secrets",
+        "agentDefinition": "Expert infrastructure auditor for NamoNexus. Focuses on Port status (8000, 5173) and GCP Secret Manager wiring.",
+        "prompt": "1. Check if ports 8000 (Backend) and 5173 (Frontend) are active.\n2. Verify .env exists and GCP Secret Manager is correctly wired in `backend/namo_core/config/settings.py`.\n3. Ensure Zero-Secret Policy is maintained.",
+        "builtInType": "explore",
+        "agentType": "claudeCode",
+        "outputPorts": 1
+      },
+      "parentId": "group-env"
+    },
+    {
+      "id": "agent-health-run",
+      "type": "subAgent",
+      "name": "agent-health-run",
+      "position": {
+        "x": 50,
+        "y": 50
+      },
+      "data": {
+        "description": "Run Full Health Check",
+        "agentDefinition": "Quality assurance agent for NRE. Runs the health check suite and verifies data integrity.",
+        "prompt": "1. Execute `python scripts/health_check.py --full`.\n2. Parse stdout to confirm 16/16 checks passed.\n3. Specifically verify FAISS index vector count is 168,861.\n4. Check PII hashing and TTS engine status.",
+        "builtInType": "explore",
+        "agentType": "claudeCode",
+        "outputPorts": 1
+      },
+      "parentId": "group-validation"
+    },
+    {
+      "id": "if-health-passed",
+      "type": "ifElse",
+      "name": "if-health-passed",
+      "position": {
+        "x": 1150,
+        "y": 350
+      },
+      "data": {
+        "branches": [
+          {
+            "label": "All Systems Green",
+            "condition": "Health check = 16/16"
+          },
+          {
+            "label": "Failures Detected",
+            "condition": "Health check < 16/16"
+          }
+        ],
+        "outputPorts": 2
+      }
+    },
+    {
+      "id": "agent-healer",
+      "type": "subAgent",
+      "name": "agent-healer",
+      "position": {
+        "x": 50,
+        "y": 50
+      },
+      "data": {
+        "description": "Diagnose & Auto-Heal",
+        "agentDefinition": "System recovery specialist. Reads error logs and applies fixes to restore system health.",
+        "prompt": "1. Read `logs/backend_error.log` and `logs/backend.log`.\n2. Identify why health check failed (e.g., database locked, missing secret, model loading error).\n3. Attempt to fix (e.g., restart backend service, fix port conflict).\n4. Report action taken to the user.",
+        "builtInType": "general-purpose",
+        "agentType": "claudeCode",
+        "outputPorts": 1
+      },
+      "parentId": "group-healing"
+    },
+    {
+      "id": "agent-network-verify",
+      "type": "subAgent",
+      "name": "agent-network-verify",
+      "position": {
+        "x": 50,
+        "y": 50
+      },
+      "data": {
+        "description": "Verify Tunnel & Gateway",
+        "agentDefinition": "Networking expert. Verifies Cloudflare Tunnel and public endpoint accessibility.",
+        "prompt": "1. Check status of `cloudflared` tunnel.\n2. Verify that `api.namonexus.com` is routing correctly to localhost:8000.\n3. Confirm SSL handshake and response code 200 for the gateway.",
+        "builtInType": "general-purpose",
+        "agentType": "claudeCode",
+        "outputPorts": 1
+      },
+      "parentId": "group-network"
+    },
+    {
+      "id": "prompt-final-status",
+      "type": "prompt",
+      "name": "prompt-final-status",
+      "position": {
+        "x": 1850,
+        "y": 350
+      },
+      "data": {
+        "label": "Readiness Report",
+        "prompt": "Namo Core Ignition Complete.\n\n**Status Summary:**\n- Infrastructure: [Status]\n- Core Health: [Passed/Failed]\n- Network Gateway: [Status]\n\n**Message:**\n{{message}}\n\nEverything is set for the Smart Classroom session."
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "name": "end-1",
+      "position": {
+        "x": 2150,
+        "y": 350
+      },
+      "data": {
+        "label": "Ready"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "id": "c1",
+      "from": "start-1",
+      "to": "agent-env-check",
+      "fromPort": "output",
+      "toPort": "input"
+    },
+    {
+      "id": "c2",
+      "from": "agent-env-check",
+      "to": "agent-health-run",
+      "fromPort": "output",
+      "toPort": "input"
+    },
+    {
+      "id": "c3",
+      "from": "agent-health-run",
+      "to": "if-health-passed",
+      "fromPort": "output",
+      "toPort": "input"
+    },
+    {
+      "id": "c4",
+      "from": "if-health-passed",
+      "to": "agent-network-verify",
+      "fromPort": "branch-0",
+      "toPort": "input"
+    },
+    {
+      "id": "c5",
+      "from": "if-health-passed",
+      "to": "agent-healer",
+      "fromPort": "branch-1",
+      "toPort": "input"
+    },
+    {
+      "id": "c6",
+      "from": "agent-network-verify",
+      "to": "prompt-final-status",
+      "fromPort": "output",
+      "toPort": "input"
+    },
+    {
+      "id": "c7",
+      "from": "agent-healer",
+      "to": "prompt-final-status",
+      "fromPort": "output",
+      "toPort": "input"
+    },
+    {
+      "id": "c8",
+      "from": "prompt-final-status",
+      "to": "end-1",
+      "fromPort": "output",
+      "toPort": "input"
+    }
+  ],
+  "createdAt": "2026-04-27T22:39:54.094Z",
+  "updatedAt": "2026-04-27T22:39:54.094Z",
+  "subAgentFlows": []
+}

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from asyncio import to_thread
 
 from namo_core.services.reasoning.providers.base import BaseReasoningProvider
 
@@ -44,11 +45,12 @@ class VertexAIReasoningProvider(BaseReasoningProvider):
             logger.warning("GCP Credentials missing for Vertex AI.")
             raise RuntimeError(f"Vertex AI init failed: {exc}") from exc
 
-    def generate(self, query: str, context: str) -> dict:
+    async def generate(self, query: str, context: str) -> dict:
         prompt = f"บริบทธรรมะ (The Wisdom Context):\n{context}\n\nคำถามนักเรียน (The Raw Inquiry):\n{query}"
-        
+
         try:
-            response = self.client.models.generate_content(
+            response = await to_thread(
+                self.client.models.generate_content,
                 model=self.model,
                 contents=prompt,
                 config=self.genai.types.GenerateContentConfig(
@@ -65,27 +67,28 @@ class VertexAIReasoningProvider(BaseReasoningProvider):
             logger.error("Vertex AI generate failed: %s", exc)
             raise
 
-    def chat(self, messages: list[dict], context: str) -> dict:
+    async def chat(self, messages: list[dict], context: str) -> dict:
         last_query = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
         contents = []
 
         for i, m in enumerate(messages):
             role = "user" if m.get("role") == "user" else "model"
             content_text = m.get("content", "")
-            
+
             # Inject context strictly into the latest user inquiry block
             if i == len(messages) - 1 and role == "user":
                 content_text = f"บริบทธรรมะ (The Wisdom Context):\n{context}\n\nคำถามนักเรียน (The Raw Inquiry):\n{content_text}"
-                
+
             contents.append(
                 self.genai.types.Content(
-                    role=role, 
+                    role=role,
                     parts=[self.genai.types.Part.from_text(text=content_text)]
                 )
             )
-            
+
         try:
-            response = self.client.models.generate_content(
+            response = await to_thread(
+                self.client.models.generate_content,
                 model=self.model,
                 contents=contents,
                 config=self.genai.types.GenerateContentConfig(

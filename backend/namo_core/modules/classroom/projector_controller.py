@@ -23,12 +23,12 @@ class ProjectorController:
         settings = get_settings()
         self._store = ClassroomSessionStore(settings.classroom_state_path)
 
-    def status(self) -> dict:
+    async def status(self) -> dict:
         """Return current projector mode."""
-        session = self._store.load()
+        session = await self._store.load()
         return {"mode": session.get("projector", "standby"), "valid_modes": sorted(VALID_MODES)}
 
-    def set_mode(self, mode: str) -> dict:
+    async def set_mode(self, mode: str) -> dict:
         """Switch projector to the given mode.
 
         Raises ``ValueError`` when mode is not recognised.
@@ -36,11 +36,11 @@ class ProjectorController:
         mode = mode.lower()
         if mode not in VALID_MODES:
             raise ValueError(f"Invalid projector mode '{mode}'. Valid: {sorted(VALID_MODES)}")
-        session = self._store.load()
+        session = await self._store.load()
         session["projector"] = mode
-        self._store.save(session)
+        await self._store.save(session)
         return {"mode": mode, "changed": True}
 
-    def toggle_off(self) -> dict:
+    async def toggle_off(self) -> dict:
         """Convenience: turn projector off."""
-        return self.set_mode("off")
+        return await self.set_mode("off")
