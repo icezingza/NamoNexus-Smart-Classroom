@@ -3,6 +3,8 @@
 import logging
 from typing import Dict, Any, Optional
 
+from namo_core.services.knowledge.global_library_retriever import GlobalLibraryRetriever
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +30,35 @@ class ContextBuilder:
 
         return "\n".join(lines)
 
+    def build_with_slide(
+        self,
+        items: list[Dict[str, Any]],
+        slide: Optional[Dict[str, Any]] = None,
+        teaching_hint: str = "",
+    ) -> str:
+        parts: list[str] = []
+        if teaching_hint:
+            parts.append(f"คำแนะนำการสอน: {teaching_hint}")
+        if slide:
+            parts.append(
+                "สไลด์ปัจจุบัน: "
+                f"{slide.get('slide_number', '')} {slide.get('title', '')} "
+                f"{slide.get('dhamma_point', '')}"
+            )
+        if items:
+            normalized = []
+            for item in items:
+                normalized.append(
+                    {
+                        "title": item.get("title", "Unknown"),
+                        "score": item.get("score", 0.0),
+                        "text": item.get("text") or item.get("content", ""),
+                        "source": item.get("source", "unknown"),
+                    }
+                )
+            parts.append(self.build(normalized))
+        return "\n\n".join(p for p in parts if p)
+
 
 class KnowledgeService:
     """
@@ -40,6 +71,13 @@ class KnowledgeService:
     def __init__(self) -> None:
         self.context_builder = ContextBuilder()
         self._tripitaka_retriever = None
+        self._global_lib: GlobalLibraryRetriever | None = None
+
+    @property
+    def global_lib(self) -> GlobalLibraryRetriever:
+        if self._global_lib is None:
+            self._global_lib = GlobalLibraryRetriever()
+        return self._global_lib
 
     def _get_tripitaka_retriever(self):
         """Lazy-load tripitaka retriever on first access."""
@@ -68,16 +106,26 @@ class KnowledgeService:
         if not query.strip():
             return []
 
+        results: list[Dict[str, Any]] = []
+
         try:
             retriever = self._get_tripitaka_retriever()
             if retriever:
-                results = retriever.search(query, top_k=top_k)
-                return results if results else []
+                tripitaka_hits = retriever.search(query, top_k=top_k)
+                if tripitaka_hits:
+                    results.extend(tripitaka_hits)
         except Exception as exc:
             logger.warning(f"Tripitaka search failed: {exc}")
 
-        # Fallback: return empty if no retriever available
-        return []
+        try:
+            gl_hits = self.global_lib.search(query, top_k=3)
+            for hit in gl_hits:
+                hit["source"] = "global_library"
+            results.extend(gl_hits)
+        except Exception as exc:
+            logger.warning("GlobalLibrary search failed: %s", exc)
+
+        return results
 
     def build_context(self, query: str, top_k: int = 3) -> str:
         """
