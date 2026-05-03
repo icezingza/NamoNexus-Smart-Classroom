@@ -7,37 +7,40 @@ from pathlib import Path
 import faiss
 import numpy as np
 
-BATCH_DIR = Path("knowledge/tripitaka_main/batch_indexes")
+BATCH_DIR = Path(__file__).resolve().parent.parent / "knowledge" / "tripitaka_main" / "batch_indexes"
 SHORT_THRESHOLD = 50
 HTML_PATTERN = re.compile(r"<[a-zA-Z][^>]*>")
 
 
 def audit_book(meta_path: Path) -> dict:
-    data = json.loads(meta_path.read_text(encoding="utf-8"))
-    if not isinstance(data, list):
-        return {"file": meta_path.stem, "error": "not a list"}
+    try:
+        data = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            return {"file": meta_path.stem, "error": "not a list"}
 
-    texts = [item.get("content", "") for item in data]
-    total = len(texts)
-    empty = sum(1 for t in texts if not t.strip())
-    short = sum(1 for t in texts if 0 < len(t.strip()) < SHORT_THRESHOLD)
-    html = sum(1 for t in texts if HTML_PATTERN.search(t))
-    avg_len = sum(len(t) for t in texts) / total if total else 0
+        texts = [item.get("content", "") for item in data]
+        total = len(texts)
+        empty = sum(1 for t in texts if not t.strip())
+        short = sum(1 for t in texts if 0 < len(t.strip()) < SHORT_THRESHOLD)
+        html = sum(1 for t in texts if HTML_PATTERN.search(t))
+        avg_len = sum(len(t) for t in texts) / total if total else 0
 
-    index_path = BATCH_DIR / meta_path.name.replace("_metadata.json", ".index")
-    index = faiss.read_index(str(index_path))
-    vector_count = index.ntotal
+        index_path = BATCH_DIR / meta_path.name.replace("_metadata.json", ".index")
+        index = faiss.read_index(str(index_path))
+        vector_count = index.ntotal
 
-    return {
-        "file": meta_path.stem.replace("_metadata", ""),
-        "chunks": total,
-        "vectors": vector_count,
-        "count_match": total == vector_count,
-        "avg_len": round(avg_len, 1),
-        "empty": empty,
-        "short": short,
-        "html": html,
-    }
+        return {
+            "file": meta_path.stem.replace("_metadata", ""),
+            "chunks": total,
+            "vectors": vector_count,
+            "count_match": total == vector_count,
+            "avg_len": round(avg_len, 1),
+            "empty": empty,
+            "short": short,
+            "html": html,
+        }
+    except Exception as exc:
+        return {"file": meta_path.stem, "error": str(exc)}
 
 
 def main():
@@ -69,7 +72,8 @@ def main():
     mismatch_files = [m["file"] for m in mismatches]
     print(f"  Count match:    {'YES' if not mismatches else 'MISMATCH in ' + str(mismatch_files)}")
     print(f"  Empty chunks:   {total_empty}")
-    print(f"  Short (<50):    {total_short} ({total_short/total_chunks*100:.1f}%)")
+    pct = (total_short / total_chunks * 100) if total_chunks else 0.0
+    print(f"  Short (<50):    {total_short} ({pct:.1f}%)")
     print(f"  HTML leaks:     {total_html}")
     print("=" * 60)
     if total_empty == 0 and total_html == 0 and not mismatches:
