@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, Any, Optional
 
-from namo_core.services.knowledge.global_library_retriever import GlobalLibraryRetriever
+from namo_core.services.knowledge.global_library_retriever import GlobalLibraryRetriever, get_global_library_retriever
 
 logger = logging.getLogger(__name__)
 
@@ -71,13 +71,10 @@ class KnowledgeService:
     def __init__(self) -> None:
         self.context_builder = ContextBuilder()
         self._tripitaka_retriever = None
-        self._global_lib: GlobalLibraryRetriever | None = None
 
     @property
     def global_lib(self) -> GlobalLibraryRetriever:
-        if self._global_lib is None:
-            self._global_lib = GlobalLibraryRetriever()
-        return self._global_lib
+        return get_global_library_retriever()
 
     def _get_tripitaka_retriever(self):
         """Lazy-load tripitaka retriever on first access."""

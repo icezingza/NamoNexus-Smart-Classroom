@@ -54,10 +54,22 @@ class GlobalLibraryRetriever:
                 continue
             scores, indices = book["index"].search(vec, n)
             for score, idx in zip(scores[0], indices[0]):
-                if idx < 0:
+                if idx < 0 or idx >= len(book["metadata"]):
+                    if idx >= 0:
+                        logger.warning("FAISS returned out-of-range idx %d (metadata len %d)", idx, len(book["metadata"]))
                     continue
                 item = dict(book["metadata"][idx])
                 item["score"] = float(score)
                 all_hits.append(item)
         all_hits.sort(key=lambda x: x["score"], reverse=True)
         return all_hits[:top_k]
+
+
+_retriever: GlobalLibraryRetriever | None = None
+
+
+def get_global_library_retriever() -> GlobalLibraryRetriever:
+    global _retriever
+    if _retriever is None:
+        _retriever = GlobalLibraryRetriever()
+    return _retriever
