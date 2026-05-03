@@ -210,8 +210,8 @@ class NotebookService:
             f"คำสั่งพิเศษ: {instr}\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        result = asyncio.run(self.reasoner.explain(prompt))
-        return {"title": "Audio Overview Script", "content": result.get("answer", ""), "source_count": len(sources)}
+        content = self._call_groq_sync(prompt)
+        return {"title": "Audio Overview Script", "content": content, "source_count": len(sources)}
 
     def generate_flashcards(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)

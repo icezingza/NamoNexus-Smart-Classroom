@@ -201,7 +201,7 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                 <span className="text-[10px] md:text-xs font-black text-slate-300 uppercase">AI</span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" title="สถานะการเชื่อมต่อ AI (ไม่ใช่ไมโครโฟน)">
                 <Mic className={`w-4 h-4 ${isMuted ? 'text-rose-500' : 'text-cyan-400'}`} />
                 <div className="flex items-center gap-1">
                   {[0.4, 0.7, 0.3, 0.9, 0.5].map((h, i) => (
@@ -215,6 +215,7 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
                     />
                   ))}
                 </div>
+                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tight hidden md:block">AI Signal</span>
               </div>
             </div>
           </div>
@@ -229,7 +230,10 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
           {/* Sidebar - Sources (Scrollable on Tablet) */}
           <div className="w-full md:w-[350px] border-b md:border-b-0 md:border-r border-slate-800 p-4 md:p-6 flex flex-col gap-4 md:gap-6 bg-slate-900/20 overflow-y-auto md:overflow-visible h-1/3 md:h-auto">
             <div>
-              <label className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-3 block">1. ค้นหาคัมภีร์อ้างอิง</label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest">1. ค้นหาคัมภีร์อ้างอิง</label>
+                <span className="text-[9px] font-black uppercase tracking-tight text-amber-500/80 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">พิมพ์เท่านั้น</span>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -297,20 +301,23 @@ export const NotebookDashboard: React.FC<NotebookDashboardProps> = ({
 
             <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
               {[
-                { id: 'briefing', label: 'สรุปเตรียมสอน', icon: FileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-                { id: 'faq', label: 'คู่มือ & FAQ', icon: HelpCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                { id: 'audio', label: 'บทละครเสียง', icon: Mic, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-                { id: 'flashcard', label: 'บัตรคำ', icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                { id: 'quiz', label: 'ควิซวัดผล', icon: Save, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+                { id: 'briefing', label: 'สรุปเตรียมสอน', icon: FileText, color: 'text-indigo-400', bg: 'bg-indigo-500/10', badge: null },
+                { id: 'faq', label: 'คู่มือ & FAQ', icon: HelpCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10', badge: null },
+                { id: 'audio', label: 'บทละครเสียง', icon: Mic, color: 'text-rose-400', bg: 'bg-rose-500/10', badge: 'บทความ' },
+                { id: 'flashcard', label: 'บัตรคำ', icon: CreditCard, color: 'text-amber-400', bg: 'bg-amber-500/10', badge: null },
+                { id: 'quiz', label: 'ควิซวัดผล', icon: Save, color: 'text-cyan-400', bg: 'bg-cyan-500/10', badge: null },
               ].map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setMode(m.id)}
-                  className={`flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[2.5rem] border-2 transition-all active:scale-95 ${mode === m.id
+                  className={`relative flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[2.5rem] border-2 transition-all active:scale-95 ${mode === m.id
                       ? `border-cyan-500 ${m.bg} shadow-[0_20px_40px_-15px_rgba(6,182,212,0.15)]`
                       : 'border-slate-800/50 bg-slate-900/20 hover:border-slate-700 hover:bg-slate-900/40'
                     }`}
                 >
+                  {m.badge && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase tracking-tight text-rose-400 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-md whitespace-nowrap">{m.badge}</span>
+                  )}
                   <div className={`p-3 md:p-4 rounded-2xl ${mode === m.id ? 'bg-cyan-500 text-white' : `${m.bg} ${m.color}`}`}>
                     <m.icon className="w-6 h-6 md:w-8 md:h-8" />
                   </div>
