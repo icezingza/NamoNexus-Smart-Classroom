@@ -1,7 +1,9 @@
 """Search across per-book FAISS indexes from global_library batch vectorization.
 
-NOTE: These indexes use paraphrase-multilingual-MiniLM-L12-v2 (L12 embedding space).
-Do NOT merge with tripitaka_index.faiss (all-MiniLM-L6-v2 / L6 space).
+NOTE: These indexes use paraphrase-multilingual-MiniLM-L12-v2, the same model as
+the Tripitaka retriever. The indexes are kept SEPARATE because they represent
+different corpora (global_library vs tripitaka_main) vectorized independently —
+do NOT merge the FAISS indexes as the vector populations are unrelated.
 """
 from __future__ import annotations
 
@@ -46,6 +48,7 @@ class GlobalLibraryRetriever:
     def search(self, query: str, top_k: int = 5) -> list[dict]:
         if not self.books:
             return []
+        # CPU-bound: callers must invoke via asyncio.to_thread in async contexts
         vec = self.model.encode([query], normalize_embeddings=True).astype("float32")
         all_hits: list[dict] = []
         for book in self.books:
