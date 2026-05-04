@@ -68,7 +68,21 @@ powershell -ExecutionPolicy Bypass -File scripts\Install-Desktop-Shortcut.ps1
   └── FAISS — Tripitaka (168,861) + Global Library (23 books)
 ```
 
-## 6. Knowledge Quality & Automation
+## 6. Resource Baseline (Verified: 2026-05-04)
+
+> วัดบน Lenovo Gaming 3 + WSL2 Redis + uvicorn reload mode
+
+| ตัวชี้วัด | ค่าที่วัดได้ | หมายเหตุ |
+|---|---|---|
+| First query latency | **< 200ms** | หลัง pre-warm startup (เดิม 22.9s cold) |
+| Display sync latency | **48.8ms** | `/teacher` → Redis PubSub → `/display` |
+| Backend RAM (WorkingSet) | **~1.86 GB** | FAISS 239MB + 2× SentenceTransformer models |
+| CPU under load | **20%** | 3x concurrent requests |
+| System RAM in use | **17.4 / 23.87 GB (73%)** | ยังเหลือ buffer ~6.4 GB |
+| Audio script generation | **~4s** | Groq llama-3.3-70b-versatile via `_call_groq_sync` |
+| 3x concurrent requests | **200, 200, 200** | ไม่มี error ภายใต้ load |
+
+## 7. Knowledge Quality & Automation
 - Audit script: `scripts/audit_knowledge_vectors.py`
 - **Batch Vectorizer**: `scripts/batch_vectorizer.py` (Auto-pilot JSON Books → FAISS Index) [cite: 2026-04-28]
 - Quality filter: `scripts/tripitaka_quality_filter.py` (Hard/Soft filter pre-processing)
@@ -80,13 +94,13 @@ powershell -ExecutionPolicy Bypass -File scripts\Install-Desktop-Shortcut.ps1
 - Empty chunks: `0` | HTML leak chunks: `0`
 - Short chunks (< 50 chars): `2,726`
 
-## 7. Namo-LoRA (Planned)
+## 8. Namo-LoRA (Planned)
 - **Location**: `tools/lora/` _(directory not yet created)_
 - **Purpose**: Fine-tune a domain-adapted model on Tripitaka corpus for higher-quality Dhamma reasoning
 - **Status**: Architecture planned — pending batch vectorization completion and GPU resource allocation
 - **Prerequisite**: `batch_vectorizer.py` must complete all 23 book indexes before LoRA training data preparation
 
-## 8. Development Status (Snapshot: 2026-05-04)
+## 9. Development Status (Snapshot: 2026-05-04)
 
 | Phase | Description | Status |
 | --- | --- | --- |
@@ -98,14 +112,14 @@ powershell -ExecutionPolicy Bypass -File scripts\Install-Desktop-Shortcut.ps1
 | P15 | One-Click Desktop Launcher | ✅ Complete — Run_NamoNexus.bat + shortcut installer [cite: 2026-05-04] |
 | P16 | Namo-LoRA Fine-tuning | 🔲 Planned (tools/lora/) |
 
-## 9. Architectural Rules (กฎเหล็ก v5.0.0)
+## 10. Architectural Rules (กฎเหล็ก v5.0.0)
 - Port Standard: `8000` (Backend) / `5173` (Frontend Local)
 - Async Integrity: ห้ามใช้ blocking sync I/O ใน endpoint ใหม่เด็ดขาด [cite: 2026-04-22]
 - Secret Security: ห้าม hardcode secrets — ดึงผ่าน `backend/namo_core/.env` → GCP Secret Manager [cite: 2026-04-22]
 - RAG Quality Gate: ต้องผ่าน Hard/Soft filter ก่อน embed ทุกครั้ง [cite: 2026-04-27]
 - Search Route: ทุก endpoint ที่ค้นหาความรู้ต้องใช้ `KnowledgeService.search()` — ห้ามเรียก `search_tripitaka()` โดยตรง (bypasses global_library) [cite: 2026-05-04]
 
-## 10. Next Actions
+## 11. Next Actions
 - **Namo-LoRA**: สร้าง `tools/lora/` และเริ่ม fine-tuning pipeline
 - **PostgreSQL Migration**: ย้ายจาก SQLite → Cloud SQL สำหรับ production
 - **Cloud Verification**: ยืนยัน RAG pipeline ผ่าน GCS assets ครบถ้วน
