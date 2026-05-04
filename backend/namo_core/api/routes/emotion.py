@@ -22,7 +22,7 @@ _vision = VisionAnalyzer()
 
 
 @router.get("/state")
-def get_emotion_state() -> dict:
+async def get_emotion_state() -> dict:
     """Return the current student emotion state from the latest sensor snapshot.
 
     Uses VisionAnalyzer for the perception signal and a neutral transcript

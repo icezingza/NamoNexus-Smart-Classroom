@@ -1,0 +1,6 @@
+# NamoNexus Dhamma Wisdom Protocol
+
+1. Respect source sanctity.
+2. Citation: [พระไตรปิฎก เล่มที่ X ข้อที่ Y].
+3. RAG strategy: Short chunks for high precision.
+4. Citation source: 84000.org or learntripitaka.com.

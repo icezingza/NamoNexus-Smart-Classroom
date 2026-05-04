@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 
 import namo_core.services.reasoning.reasoner as reasoner_module
@@ -10,8 +11,12 @@ from namo_core.services.reasoning.reasoner import ReasoningService
 from namo_core.config.settings import Settings
 
 
-def test_reasoning_service_exposes_provider_metadata() -> None:
-    payload = ReasoningService().explain("mindfulness")
+def test_reasoning_service_exposes_provider_metadata(monkeypatch) -> None:
+    import namo_core.config.settings as _s
+    monkeypatch.setattr(_s, "_settings_instance", None)
+    monkeypatch.setenv("NAMO_REASONING_PROVIDER", "mock")
+    monkeypatch.setenv("NAMO_REASONING_ALLOW_MOCK_FALLBACK", "true")
+    payload = asyncio.run(ReasoningService().explain("mindfulness"))
     assert payload["provider"] == "mock"
     assert payload["provider_metadata"]["name"] == "mock"
     assert payload["provider_metadata"]["active_provider"] == "mock"
@@ -32,38 +37,6 @@ def test_reasoning_provider_factory_falls_back_for_incomplete_config() -> None:
 
 
 def test_openai_compatible_provider_handles_structured_content(monkeypatch) -> None:
-    class DummyResponse:
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> dict:
-            return {
-                "choices": [
-                    {
-                        "message": {
-                            "content": [
-                                {"type": "text", "text": "Mindfulness starts with breathing."},
-                                {"type": "text", "text": "Return attention gently."},
-                            ]
-                        }
-                    }
-                ]
-            }
-
-    captured: dict = {}
-
-    def fake_post(url: str, headers: dict, json: dict, timeout: float) -> DummyResponse:
-        captured["url"] = url
-        captured["headers"] = headers
-        captured["json"] = json
-        captured["timeout"] = timeout
-        return DummyResponse()
-
-    monkeypatch.setattr(
-        "namo_core.services.reasoning.providers.openai_compatible.httpx.post",
-        fake_post,
-    )
-
     provider = OpenAICompatibleReasoningProvider(
         base_url="http://localhost:8001/v1",
         api_key="test-key",
@@ -72,22 +45,33 @@ def test_openai_compatible_provider_handles_structured_content(monkeypatch) -> N
         system_prompt="Teaching system prompt.",
     )
 
-    payload = provider.generate(query="Explain mindfulness.", context="Breathing awareness.")
+    # Mock _request_completion — avoids httpx network call, tests generate() orchestration
+    async def fake_request_completion(messages: list[dict]) -> str:
+        assert messages[0]["content"] == "Teaching system prompt."
+        assert messages[0]["role"] == "system"
+        return "Mindfulness starts with breathing.\nReturn attention gently."
+
+    monkeypatch.setattr(provider, "_request_completion", fake_request_completion)
+
+    payload = asyncio.run(provider.generate(query="Explain mindfulness.", context="Breathing awareness."))
 
     assert payload["provider"] == "openai-compatible"
     assert payload["answer"] == "Mindfulness starts with breathing.\nReturn attention gently."
-    assert captured["timeout"] == 12.5
-    assert captured["json"]["messages"][0]["content"] == "Teaching system prompt."
+    assert payload["model"] == "demo-model"
 
 
 def test_reasoning_service_falls_back_when_runtime_provider_fails(monkeypatch) -> None:
+    import namo_core.config.settings as _s
+    monkeypatch.setattr(_s, "_settings_instance", None)
+    monkeypatch.setenv("NAMO_REASONING_ALLOW_MOCK_FALLBACK", "true")
+
     class FailingProvider(BaseReasoningProvider):
         name = "openai-compatible"
 
-        def generate(self, query: str, context: str) -> dict:
+        async def generate(self, query: str, context: str) -> dict:
             raise httpx.TimeoutException("provider timeout")
 
-        def chat(self, messages: list[dict], context: str) -> dict:
+        async def chat(self, messages: list[dict], context: str) -> dict:
             raise httpx.TimeoutException("provider timeout")
 
     def fake_build_reasoning_provider(settings: Settings) -> tuple[BaseReasoningProvider, dict]:
@@ -104,7 +88,7 @@ def test_reasoning_service_falls_back_when_runtime_provider_fails(monkeypatch) -
 
     monkeypatch.setattr(reasoner_module, "build_reasoning_provider", fake_build_reasoning_provider)
 
-    payload = ReasoningService().explain("mindfulness")
+    payload = asyncio.run(ReasoningService().explain("mindfulness"))
 
     assert payload["provider"] == "mock"
     assert payload["provider_metadata"]["name"] == "mock"

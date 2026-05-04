@@ -5,9 +5,10 @@ import { TranscriptPanel } from '../components/TranscriptPanel';
 import { ControlBar } from '../components/ControlBar';
 import { SettingsModal } from '../components/SettingsModal';
 import { NotebookDashboard } from '../components/NotebookDashboard';
+import { DocumentToSkillModal } from '../components/DocumentToSkillModal';
 import { useNamoSettings } from '../hooks/useNamoSettings';
 import { useNamoSocket } from '../hooks/useNamoSocket';
-import { Book } from 'lucide-react';
+import { Book, Sparkles } from 'lucide-react';
 
 export function TeacherView() {
   const { settings, saveSettings, wsUrl, httpUrl, fetchWithAuth } = useNamoSettings();
@@ -16,9 +17,15 @@ export function TeacherView() {
   const [isMuted, setIsMuted] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+  const [isSkillModalOpen, setIsSkillModalOpen] = useState(false);
 
   const handleClearChat = () => {
     console.log("Clearing chat context...");
+  };
+
+  const handleCreateSkill = (description: string, files: File[]) => {
+    console.log("Creating skill with description:", description, "and files:", files);
+    // Future implementation: API call to create skill
   };
 
   return (
@@ -35,15 +42,26 @@ export function TeacherView() {
       />
 
       <main className="flex-1 flex flex-col min-w-0 container max-w-4xl mx-auto px-4">
-        <div className="flex-shrink-0 pt-4 flex items-center justify-between">
+        <div className="flex-shrink-0 pt-4 flex items-center justify-end gap-3">
           <AIStatusIndicator status={status} isMuted={isMuted} />
-          <button 
-            onClick={() => setIsNotebookOpen(true)}
-            className="flex items-center gap-2 bg-slate-900/50 hover:bg-cyan-500/10 border border-slate-800 hover:border-cyan-500/50 px-4 py-2 rounded-xl transition-all group"
-          >
-            <Book className="w-5 h-5 text-slate-400 group-hover:text-cyan-400" />
-            <span className="text-sm font-bold text-slate-300 group-hover:text-white">สมุดบันทึกนะโม</span>
-          </button>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsSkillModalOpen(true)}
+              className="flex items-center gap-2 bg-slate-900/50 hover:bg-indigo-500/10 border border-slate-800 hover:border-indigo-500/50 px-4 py-2 rounded-xl transition-all group"
+            >
+              <Sparkles className="w-5 h-5 text-slate-400 group-hover:text-indigo-400" />
+              <span className="text-sm font-bold text-slate-300 group-hover:text-white uppercase tracking-tighter">Skill Sync</span>
+            </button>
+
+            <button 
+              onClick={() => setIsNotebookOpen(true)}
+              className="flex items-center gap-2 bg-slate-900/50 hover:bg-cyan-500/10 border border-slate-800 hover:border-cyan-500/50 px-4 py-2 rounded-xl transition-all group"
+            >
+              <Book className="w-5 h-5 text-slate-400 group-hover:text-cyan-400" />
+              <span className="text-sm font-bold text-slate-300 group-hover:text-white">สมุดบันทึกนะโม</span>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col">
@@ -75,6 +93,12 @@ export function TeacherView() {
         fetchWithAuth={fetchWithAuth}
         aiStatus={status}
         isMuted={isMuted}
+      />
+
+      <DocumentToSkillModal
+        isOpen={isSkillModalOpen}
+        onClose={() => setIsSkillModalOpen(false)}
+        onCreate={handleCreateSkill}
       />
     </div>
   );

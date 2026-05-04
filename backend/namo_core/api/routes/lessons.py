@@ -6,5 +6,5 @@ router = APIRouter(prefix="/lessons", tags=["lessons"])
 
 
 @router.get("/outline")
-def lesson_outline(lesson_id: str = Query("lesson-intro-buddhism")) -> dict:
+async def lesson_outline(lesson_id: str = Query("lesson-intro-buddhism")) -> dict:
     return LessonGenerator().generate_outline(lesson_id)

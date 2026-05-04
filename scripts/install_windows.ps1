@@ -1,5 +1,5 @@
 # =============================================================================
-# Namo Core — Windows One-Time Installation Script
+# Namo Core - Windows One-Time Installation Script
 # Phase 8: Deployment
 #
 # Run once on a fresh machine to set up the full environment.
@@ -12,7 +12,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  Namo Core — Installation (Windows)" -ForegroundColor Cyan
+Write-Host "  Namo Core - Installation (Windows)" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -34,7 +34,7 @@ try {
 Write-Host "[2/6] Creating Python virtual environment..." -ForegroundColor Yellow
 $venvPath = Join-Path $Root ".venv"
 if (Test-Path $venvPath) {
-    Write-Host "  .venv already exists — skipping creation." -ForegroundColor Gray
+    Write-Host "  .venv already exists - skipping creation." -ForegroundColor Gray
 } else {
     python -m venv $venvPath
     Write-Host "  Created: $venvPath" -ForegroundColor Green
@@ -68,17 +68,14 @@ try {
 }
 
 # ---------------------------------------------------------------------------
-# Step 5: Copy .env.example → .env (if not exists)
+# Step 5: Validate .env policy (no automatic creation)
 # ---------------------------------------------------------------------------
 Write-Host "[5/6] Configuring environment..." -ForegroundColor Yellow
 $envFile = Join-Path $Root ".env"
-$envExample = Join-Path $Root ".env.example"
 if (Test-Path $envFile) {
-    Write-Host "  .env already exists — skipping copy." -ForegroundColor Gray
+    Write-Host "  .env already exists." -ForegroundColor Gray
 } else {
-    Copy-Item $envExample $envFile
-    Write-Host "  Created .env from .env.example" -ForegroundColor Green
-    Write-Host "  IMPORTANT: Edit .env to configure your API keys and settings." -ForegroundColor Yellow
+    Write-Host "  IMPORTANT: You must manually create .env and configure your API keys and settings." -ForegroundColor Yellow
 }
 
 # ---------------------------------------------------------------------------
@@ -106,6 +103,6 @@ Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Edit .env with your LLM API keys (if using real LLM)" -ForegroundColor White
+Write-Host "  1. Create .env manually with valid secrets" -ForegroundColor White
 Write-Host "  2. Run: powershell -ExecutionPolicy Bypass -File .\scripts\start_windows.ps1" -ForegroundColor White
 Write-Host ""

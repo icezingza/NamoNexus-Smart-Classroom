@@ -1,0 +1,12 @@
+{
+  "skills": [
+    {"name":"UX_Aesthetics_Designer","enabled":true,"sources":["docs/KnowledgePack.pdf"]},
+    {"name":"Dhamma_Wisdom_Teacher","enabled":true,"sources":["docs/KnowledgePack.pdf"]}
+  ],
+  "settings": {
+    "rag_engine":"FAISS",
+    "vector_count":168000,
+    "knowledge_pack":"docs/KnowledgePack.pdf",
+    "blueprint":"docs/Blueprint.yaml"
+  }
+}

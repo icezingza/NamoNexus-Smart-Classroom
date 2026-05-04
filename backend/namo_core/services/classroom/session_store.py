@@ -16,6 +16,7 @@ DEFAULT_SESSION_STATE = {
 }
 
 REDIS_KEY_SESSION = "namo:classroom:session"
+REDIS_CHANNEL_CLASSROOM_STATE = "classroom_state"
 
 
 class ClassroomSessionStore:
@@ -53,6 +54,10 @@ class ClassroomSessionStore:
         if self.use_redis:
             try:
                 await self.redis.set(REDIS_KEY_SESSION, json.dumps(payload, ensure_ascii=True))
+                await self.redis.publish(
+                    REDIS_CHANNEL_CLASSROOM_STATE,
+                    json.dumps(payload, ensure_ascii=True),
+                )
             except Exception as e:
                 logger.error(f"Redis save error: {e}")
         else:

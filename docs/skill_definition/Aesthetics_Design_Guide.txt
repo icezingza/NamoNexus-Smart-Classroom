@@ -1,0 +1,16 @@
+# NamoNexus Frontend Aesthetics & UX Guide
+
+This document defines the visual language and user experience standards for the NamoNexus interface.
+
+## 1. Design System Tokens
+- **Colors**: slate-950 (#020617), cyan-500 (#06b6d4), indigo-600 (#4f46e5).
+- **Glassmorphism**: backdrop-blur-md, border-white/10, bg-slate-900/40.
+- **Rounding**: rounded-[2.5rem] for major containers.
+
+## 2. Interaction Design
+- **Buttons**: active:scale-95, transition-all.
+- **Animations**: Framer Motion for smooth state transitions.
+- **Glows**: Subtle cyan/indigo glows for active AI status.
+
+## 3. Tablet Optimization
+- 10.5" tablet target. Large hit targets. Floating webcam preview.

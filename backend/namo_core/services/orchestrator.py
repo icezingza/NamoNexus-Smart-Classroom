@@ -2,11 +2,12 @@
 orchestrator.py — Central Nervous System (Full-Loop Pipeline)
 STT → Emotion → RAG+Reasoning → TTS
 
-ทุก step ทำงานแบบ sync-safe ใช้ได้ทั้ง HTTP และ WebSocket handler
+Fully async: CPU-bound steps (STT, emotion, FAISS, TTS) run via asyncio.to_thread()
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import time
@@ -92,7 +93,7 @@ class OrchestratorSingleton:
         """
         logger.info("OrchestratorSingleton ready (lazy loading mode enabled)")
 
-    def run_full_loop(
+    async def run_full_loop(
         self,
         *,
         text: str | None = None,
@@ -103,7 +104,6 @@ class OrchestratorSingleton:
         settings = get_settings()
         tts_voice = voice or settings.tts_voice
 
-        # Initialize heavily-loaded models lazily upon first request
         self.initialize()
 
         t_total = time.perf_counter()
@@ -111,10 +111,11 @@ class OrchestratorSingleton:
         stt_text = text or ""
 
         # ── 1. STT ────────────────────────────────────────────────────────
+        stt_result: dict = {}
         if not stt_text and audio_path and self.stt:
             t0 = time.perf_counter()
             try:
-                stt_result = self.stt.transcribe_file(audio_path)
+                stt_result = await asyncio.to_thread(self.stt.transcribe_file, audio_path)
                 stt_text = stt_result.get("text", "")
             except Exception as exc:
                 logger.warning("STT failed: %s", exc)
@@ -124,13 +125,12 @@ class OrchestratorSingleton:
         if not stt_text:
             if audio_path and not self.stt:
                 logger.warning("STT service is not available. Cannot process audio.")
-
             return {"error": "No input text or STT result", "latency_ms": {}}
 
         raw_stt_text = stt_text
 
         # ── Phase 12: Speaker Diarization Formatting ──────────────────────────
-        if "stt_result" in locals() and (diarization_data := stt_result.get("diarization")):
+        if diarization_data := stt_result.get("diarization"):
             if formatted_text := format_diarization(diarization_data):
                 stt_text = formatted_text
 
@@ -141,18 +141,19 @@ class OrchestratorSingleton:
         if self.emotion_analyzer:
             try:
                 from namo_core.engines.empathy.engine import EmpathyEngine
-                emotion_result = self.emotion_analyzer.analyze(raw_stt_text)
+                emotion_result = await asyncio.to_thread(self.emotion_analyzer.analyze, raw_stt_text)
                 teaching_hint = EmpathyEngine.modifier_from_text_emotion(emotion_result["emotion"])
             except Exception as exc:
                 logger.warning("Emotion analysis failed: %s", exc)
         timings["emotion_ms"] = round((time.perf_counter() - t0) * 1000, 1)
 
-        # ── 3. RAG + Reasoning ────────────────────────────────────────────
+        # ── 3. RAG + Reasoning (FAISS search + LLM call) ─────────────────
         t0 = time.perf_counter()
         answer = "[reasoning service unavailable]"
         if self.reasoner:
             try:
-                reason = self.reasoner.chat(
+                reason = await asyncio.to_thread(
+                    self.reasoner.chat,
                     messages=[{"role": "user", "content": stt_text}],
                     teaching_hint=teaching_hint,
                     session_id=session_id,
@@ -168,12 +169,10 @@ class OrchestratorSingleton:
         audio_b64 = None
         audio_fmt = "mp3"
         try:
-            from namo_core.modules.tts.providers.edge_tts_provider import (
-                EdgeTTSProvider,
-            )
+            from namo_core.modules.tts.providers.edge_tts_provider import EdgeTTSProvider
 
             tts_provider = EdgeTTSProvider(default_voice=tts_voice)
-            tts_result = tts_provider.synthesize(answer, voice=tts_voice)
+            tts_result = await asyncio.to_thread(tts_provider.synthesize, answer, voice=tts_voice)
             audio_b64 = tts_result.get("audio_base64")
             audio_fmt = tts_result.get("audio_format", "mp3")
         except Exception as exc:
@@ -197,7 +196,7 @@ class OrchestratorSingleton:
 orchestrator = OrchestratorSingleton()
 
 
-def run_full_loop(
+async def run_full_loop(
     *,
     text: str | None = None,
     audio_path: str | None = None,
@@ -205,7 +204,7 @@ def run_full_loop(
     voice: str | None = None,
 ) -> dict:
     """รัน Full Pipeline: (Audio|Text) → STT → Emotion → Reasoner → TTS"""
-    return orchestrator.run_full_loop(
+    return await orchestrator.run_full_loop(
         text=text,
         audio_path=audio_path,
         session_id=session_id,

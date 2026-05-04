@@ -40,3 +40,11 @@ knowledge/tripitaka_main/*.json
 knowledge/tripitaka_main/chunks/
 knowledge/tripitaka_main/chunks_deep/
 !knowledge/tripitaka_main/README.md
+.claude/worktrees/
+
+# Test artifacts (ad-hoc scripts and output files)
+backend/test_*.py
+backend/*_result.txt
+backend/verify_changes.py
+backend/startup_debug.*
+backend/startup_now.*

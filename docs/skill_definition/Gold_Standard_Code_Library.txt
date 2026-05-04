@@ -1,0 +1,10 @@
+# NamoNexus Gold Standard Code Library
+
+## 1. Backend: Async FastAPI
+Standard: Use explicit dependency injection and 100% async handlers.
+
+## 2. Frontend: Premium React
+Standard: Use Framer Motion for all entry animations. Strictly type all props. Avoid 'any'.
+
+## 3. Socket: useNamoSocket
+Standard: Heartbeat at 30s. Auto-reconnect with exponential backoff.

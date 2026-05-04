@@ -19,7 +19,7 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(credentials: LoginRequest):
+async def login(credentials: LoginRequest):
     settings = get_settings()
 
     # TODO: ใน Phase 12 สามารถปรับให้เชื่อมกับ Database เพื่อเช็ค Hash ของรหัสผ่านได้

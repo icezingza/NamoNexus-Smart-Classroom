@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 from pathlib import Path
 
@@ -16,7 +15,7 @@ class Settings(BaseSettings):
     env: str = "development"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173,*"  # อนุญาต Wildcard เพื่อรองรับ Dynamic LAN IP ของ Tablet
+    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     classroom_state_file: str | None = None
     device_mode: str = "mock"
     allow_mock_devices: bool = True
@@ -123,25 +122,24 @@ class Settings(BaseSettings):
 _settings_instance: Settings | None = None
 
 
+async def initialize_settings_secrets() -> None:
+    """Load external secrets deterministically before serving requests."""
+    settings = get_settings()
+    if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        return
+
+    logger = logging.getLogger(__name__)
+    logger.info("GCP credentials detected. Loading secrets...")
+    from namo_core.utils.gcp_secrets import load_all_secrets
+
+    await load_all_secrets()
+    if settings.jwt_secret_key == "MUST_BE_SET_IN_ENV":
+        logger.warning("JWT secret key still unresolved after secret loading.")
+
+
 def get_settings() -> Settings:
     global _settings_instance
     if _settings_instance is None:
         _settings_instance = Settings()
-
-        # Phase 9: Enterprise Security - Auto-load GCP Secrets
-        if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-            logger = logging.getLogger(__name__)
-            logger.info("GCP credentials detected. Connecting to Secret Manager...")
-            from namo_core.utils.gcp_secrets import load_all_secrets
-
-            try:
-                loop = asyncio.get_running_loop()
-                logger.warning(
-                    "Running in active loop. GCP secrets loading in background."
-                )
-                loop.create_task(load_all_secrets())
-            except RuntimeError:
-                # No running event loop, safe to run synchronously
-                asyncio.run(load_all_secrets())
 
     return _settings_instance

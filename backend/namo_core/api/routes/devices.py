@@ -6,5 +6,5 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 
 
 @router.get("")
-def devices() -> dict:
+async def devices() -> dict:
     return DeviceService().snapshot()

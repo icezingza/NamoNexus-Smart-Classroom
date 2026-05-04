@@ -1,0 +1,6 @@
+# NamoNexus Validation & Mastery Gates
+
+1. Search Accuracy: Top RAG result must match expected keywords.
+2. Latency: < 500ms for metadata.
+3. Zero Hallucination: Strict validation of Dhamma quotes.
+4. UI Quality: Premium feel check (Glassmorphism + Animations).

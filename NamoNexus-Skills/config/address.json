@@ -1,0 +1,14 @@
+{
+  "project_owner": "Kanin",
+  "location": {
+    "country": "Thailand",
+    "province": "Phuket",
+    "city": "Talat Yai",
+    "timezone": "ICT"
+  },
+  "deployment": {
+    "edge_device": "Lenovo Gaming 3",
+    "cloud_provider": "GCP",
+    "hybrid_stack": true
+  }
+}

@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -11,6 +13,36 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
         self.protected_prefixes = ("/classroom", "/nexus", "/notebook")
         # Public paths that bypass auth (read-only, no personal data)
         self.public_paths = ("/notebook/suggest-sources",)
+        self._ws_prefixes = ("/ws", "/notebook/ws")
+
+    async def __call__(self, scope, receive, send):
+        # BaseHTTPMiddleware skips dispatch() for WebSocket scopes entirely.
+        # We intercept here before that bypass can happen.
+        if scope["type"] == "websocket":
+            path = scope.get("path", "")
+            if any(path.startswith(p) for p in self._ws_prefixes):
+                import jwt
+
+                from namo_core.config.settings import get_settings
+
+                settings = get_settings()
+                qs = scope.get("query_string", b"").decode()
+                token = (parse_qs(qs).get("token") or [None])[0]
+
+                if not token:
+                    await receive()  # consume websocket.connect
+                    await send({"type": "websocket.close", "code": 1008, "reason": "Missing auth token"})
+                    return
+
+                try:
+                    payload = jwt.decode(token, settings.system_secret, algorithms=["HS256"])
+                    scope.setdefault("state", {})["user"] = payload
+                except jwt.InvalidTokenError:
+                    await receive()  # consume websocket.connect
+                    await send({"type": "websocket.close", "code": 1008, "reason": "Invalid token"})
+                    return
+
+        await super().__call__(scope, receive, send)
 
     async def dispatch(self, request: Request, call_next):
         from namo_core.config.settings import get_settings
@@ -39,15 +71,6 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
                 token = auth.split(" ")[1]
 
             try:
-                # System Bypass tokens (dev + health check)
-                bypass_tokens = {
-                    "NamoSystemBypass2026-HealthCheck",
-                    "NamoSovereignToken2026",
-                }
-                if token in bypass_tokens:
-                    request.state.user = "sovereign"
-                    return await call_next(request)
-
                 # Verify JWT signatures and expiration
                 payload = jwt.decode(token, secret, algorithms=["HS256"])
                 request.state.user = payload
@@ -60,20 +83,5 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(
                     status_code=401, content={"detail": "Invalid Security Token"}
                 )
-
-        # 2. WebSocket Endpoints (Allow /ws and /notebook/ws)
-        if path.startswith("/ws") or path.startswith("/notebook/ws"):
-            # Phase 10: Allow specific origins for WebSockets without token verification
-            origin = request.headers.get("Origin")
-            allowed_socket_origins = [
-                "https://namonexus.com",
-                "https://www.namonexus.com",
-                "https://api.namonexus.com",
-            ]
-            if origin in allowed_socket_origins:
-                return await call_next(request)
-
-            # Bypass JWT checking for WebSockets entirely to allow tablet connection from 5G/anywhere
-            return await call_next(request)
 
         return await call_next(request)

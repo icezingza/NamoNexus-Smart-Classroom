@@ -1,0 +1,9 @@
+skills:
+  - name: UX_Aesthetics_Designer
+    sources: [Aesthetics_Design_Guide.txt, Aesthetics_Guide.md]
+    purpose: ออกแบบ UI/UX Premium Dark Mode, Cyber-Zen
+    validation: [UI ต้อง WOW, ห้ามใช้สีผิดมาตรฐาน]
+  - name: Dhamma_Wisdom_Teacher
+    sources: [Dhamma_Wisdom_Protocol.md, Dhamma_Wisdom_Protocol.txt]
+    purpose: ตอบคำถามพระไตรปิฎกพร้อม Citation
+    validation: [ห้าม Hallucinate, ต้องมี Citation]

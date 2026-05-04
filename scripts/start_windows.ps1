@@ -1,5 +1,5 @@
 # =============================================================================
-# Namo Core — Windows Startup Script
+# Namo Core -- Windows Startup Script
 # Phase 8: Deployment
 #
 # Starts the FastAPI backend and optionally the React dashboard.
@@ -19,7 +19,7 @@ param(
 $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
 $VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
-$EnvFile = Join-Path $Root ".env"
+$EnvFile = Join-Path $Root "backend\namo_core\.env"
 $LogDir = Join-Path $Root "logs"
 
 # ---------------------------------------------------------------------------
@@ -27,7 +27,7 @@ $LogDir = Join-Path $Root "logs"
 # ---------------------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "  Namo Core — Starting (Windows)" -ForegroundColor Cyan
+Write-Host "  Namo Core -- Starting (Windows)" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -38,9 +38,9 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 if (-not (Test-Path $EnvFile)) {
-    Write-Host "WARNING: .env not found. Copying from .env.example..." -ForegroundColor Yellow
-    Copy-Item (Join-Path $Root ".env.example") $EnvFile
-    Write-Host "  Edit .env before running in production." -ForegroundColor Yellow
+    Write-Host "ERROR: .env not found at $EnvFile" -ForegroundColor Red
+    Write-Host "Security Policy Violation: You must explicitly create a .env file with valid credentials before starting the system." -ForegroundColor Yellow
+    exit 1
 }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -48,6 +48,38 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 # Override port if specified
 if ($Port -gt 0) {
     $env:NAMO_API_PORT = $Port
+}
+
+# ---------------------------------------------------------------------------
+# Redis Pre-flight -- required for WebSocket PubSub (Latency <50ms)
+# ---------------------------------------------------------------------------
+Write-Host "[Redis] Checking Redis on localhost:6379..." -ForegroundColor Yellow
+$redisReady = $false
+try {
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    $tcpClient.Connect("127.0.0.1", 6379)
+    $tcpClient.Close()
+    $redisReady = $true
+    Write-Host "  Redis: ONLINE" -ForegroundColor Green
+} catch {
+    Write-Host "  Redis: OFFLINE -- attempting to start via WSL2..." -ForegroundColor Yellow
+    $wslCheck = wsl --list --verbose 2>&1 | Select-String "Ubuntu"
+    if ($wslCheck) {
+        Start-Process -FilePath "wsl" -ArgumentList "-d", "Ubuntu", "-u", "root", "--", "service", "redis-server", "start" -NoNewWindow -Wait
+        Start-Sleep -Seconds 3
+        try {
+            $tcpClient2 = New-Object System.Net.Sockets.TcpClient
+            $tcpClient2.Connect("127.0.0.1", 6379)
+            $tcpClient2.Close()
+            $redisReady = $true
+            Write-Host "  Redis: ONLINE (started via WSL2)" -ForegroundColor Green
+        } catch {
+            Write-Host "  WARNING: Redis still unreachable. WebSocket PubSub will be degraded." -ForegroundColor Red
+            Write-Host "  Manual fix: wsl -d Ubuntu -- sudo service redis-server start" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  WARNING: WSL2 Ubuntu not found. Start Redis manually." -ForegroundColor Red
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -91,7 +123,7 @@ if ($ready) {
 }
 
 # ---------------------------------------------------------------------------
-# Start Frontend (React + Vite) — optional
+# Start Frontend (React + Vite) -- optional
 # ---------------------------------------------------------------------------
 if (-not $BackendOnly) {
     $DashboardPath = Join-Path $Root "frontend"
@@ -112,7 +144,7 @@ if (-not $BackendOnly) {
         Write-Host "  Frontend PID: $($FrontendProcess.Id)" -ForegroundColor Green
         Write-Host "  Dashboard at http://localhost:5173" -ForegroundColor Green
     } else {
-        Write-Host "[Frontend] Skipped — run install_windows.ps1 first." -ForegroundColor Gray
+        Write-Host "[Frontend] Skipped -- run install_windows.ps1 first." -ForegroundColor Gray
     }
 }
 

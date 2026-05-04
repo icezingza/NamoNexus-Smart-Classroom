@@ -17,11 +17,9 @@ os.environ["NAMO_TTS_VOICE"] = "demo-th"
 os.environ["NAMO_ENABLE_TTS"] = "true"
 os.environ["NAMO_SPEECH_PROVIDER"] = "mock"
 
-from namo_core.config.settings import get_settings
-
-
 @pytest.fixture(autouse=True)
 def clear_settings_cache():
-    get_settings.cache_clear()
+    import namo_core.config.settings as _s
+    _s._settings_instance = None
     yield
-    get_settings.cache_clear()
+    _s._settings_instance = None
