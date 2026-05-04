@@ -9,6 +9,7 @@ import redis.asyncio as redis
 
 from namo_core.services.lessons.notebook_service import NotebookService
 from namo_core.services.knowledge.tripitaka_retriever import search_tripitaka
+from namo_core.services.knowledge.knowledge_service import KnowledgeService
 from namo_core.database.core import SessionLocal
 from namo_core.database.models import Teacher, NotebookJob
 
@@ -181,21 +182,23 @@ def run_generation_task(
 # --- Endpoints ---
 
 @router.get("/list")
-def list_notebooks(db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
+async def list_notebooks(db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
     service = NotebookService(db)
-    notebooks = service.list_teacher_notebooks(teacher.id)
+    notebooks = await asyncio.to_thread(service.list_teacher_notebooks, teacher.id)
     return [
-        {"id": nb.id, "title": nb.title, "created_at": nb.created_at, "source_count": len(nb.sources)} 
+        {"id": nb.id, "title": nb.title, "created_at": nb.created_at, "source_count": len(nb.sources)}
         for nb in notebooks
     ]
 
 @router.get("/job/{job_id}")
-def get_job_status(job_id: str, db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
+async def get_job_status(job_id: str, db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
     """เช็คสถานะงานที่รันอยู่ใน Background"""
-    job = db.query(NotebookJob).filter(NotebookJob.id == job_id, NotebookJob.teacher_id == teacher.id).first()
+    job = await asyncio.to_thread(
+        lambda: db.query(NotebookJob).filter(NotebookJob.id == job_id, NotebookJob.teacher_id == teacher.id).first()
+    )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
+
     return {
         "job_id": job.id,
         "status": job.status,
@@ -206,10 +209,10 @@ def get_job_status(job_id: str, db: Session = Depends(get_db), teacher: Teacher 
     }
 
 @router.post("/save")
-def save_notebook(payload: NotebookSaveRequest, db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
+async def save_notebook(payload: NotebookSaveRequest, db: Session = Depends(get_db), teacher: Teacher = Depends(get_current_teacher)):
     service = NotebookService(db)
     sources_dict = [item.dict() for item in payload.sources]
-    nb = service.save_notebook(teacher.id, payload.title, sources_dict, payload.id)
+    nb = await asyncio.to_thread(service.save_notebook, teacher.id, payload.title, sources_dict, payload.id)
     return {"message": "บันทึกเรียบร้อย", "notebook_id": nb.id}
 
 @router.post("/generate")
@@ -271,7 +274,7 @@ async def generate_notebook_content(
     }
 
 @router.get("/suggest-sources")
-def suggest_sources(
+async def suggest_sources(
     q: str = Query(..., description="คำค้นหาสำหรับคัมภีร์", min_length=1, max_length=500),
     top_k: int = Query(5, description="จำนวนผลลัพธ์สูงสุด", ge=1, le=10),
 ) -> dict:
@@ -279,8 +282,9 @@ def suggest_sources(
     ค้นหาคัมภีร์จาก Tripitaka FAISS index เพื่อใช้เป็นแหล่งข้อมูลใน Notebook.
     ตอบกลับในรูปแบบที่ NotebookDashboard คาดหวัง ({ "suggestions": [...] })
     """
-    results = search_tripitaka(q, top_k=top_k)
-    # Ensure source field is added for frontend compatibility
+    # Use KnowledgeService so results include both Tripitaka AND global_library (23 books)
+    ks = KnowledgeService()
+    results = await asyncio.to_thread(ks.search, q, top_k)
     for r in results:
         if "source" not in r:
             r["source"] = "tripitaka"

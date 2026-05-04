@@ -17,7 +17,7 @@ from namo_core.api.routes.ws import router as ws_router
 from namo_core.api.routes.feedback import router as feedback_router
 from namo_core.api.routes.auth_routes import router as auth_routes_router
 from namo_core.api.routes.notebook import router as notebook_router
-from namo_core.config.settings import get_settings
+from namo_core.config.settings import get_settings, initialize_settings_secrets
 from namo_core.services.knowledge.cache_initialization import initialize_semantic_cache
 from namo_core.database.core import SessionLocal, engine, Base
 import namo_core.database.models  # noqa: F401 — ensure all models are registered before create_all
@@ -80,14 +80,26 @@ def create_app() -> FastAPI:
         except Exception as exc:
             _logger.warning("Failed to initialize semantic cache: %s", exc)
 
-        # Phase 1: Load Secrets from GCP Secret Manager
+        # Phase 1: Load secrets before handling requests.
         try:
-            from namo_core.utils.gcp_secrets import load_all_secrets
-            await load_all_secrets()
+            await initialize_settings_secrets()
         except ImportError:
             _logger.warning("GCP Secret Manager libraries not found. Using local environment variables.")
         except Exception as exc:
             _logger.error("Failed to load secrets from GCP: %s", exc)
+
+        # Phase 11V: Pre-warm both RAG retrievers so first teacher query is instant.
+        try:
+            import asyncio as _asyncio
+            from namo_core.services.knowledge.global_library_retriever import get_global_library_retriever
+            from namo_core.services.knowledge.tripitaka_retriever import get_tripitaka_retriever
+            tri, gl = await _asyncio.gather(
+                _asyncio.to_thread(get_tripitaka_retriever),
+                _asyncio.to_thread(get_global_library_retriever),
+            )
+            _logger.info("[PreWarm] Tripitaka ready, GlobalLib: %d book indexes", len(gl.books))
+        except Exception as exc:
+            _logger.warning("[PreWarm] Failed (will load on first request): %s", exc)
 
     return app
 
