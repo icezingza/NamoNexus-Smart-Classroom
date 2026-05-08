@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     env: str = "development"
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    allowed_origins: str = (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173,"
+        "https://namonexus.com,"
+        "https://www.namonexus.com"
+    )
     classroom_state_file: str | None = None
     device_mode: str = "mock"
     allow_mock_devices: bool = True
@@ -35,7 +40,6 @@ class Settings(BaseSettings):
     )
     reasoning_api_base_url: str | None = None
     reasoning_api_key: str | None = None
-    system_secret: str = "MUST_BE_SET_IN_ENV"
 
     # Database Configuration (Phase 12 / Phase 3 Persistent Layer)
     database_url: str = "sqlite:///./namo_classroom.db"
@@ -44,11 +48,22 @@ class Settings(BaseSettings):
     redis_password: str | None = None
 
     # Security Configuration (Phase 13)
+    # jwt_secret_key is the single source of truth for JWT signing.
+    # system_secret is a read-only alias kept for backward compatibility —
+    # always read jwt_secret_key directly; do NOT set system_secret in .env.
     jwt_secret_key: str = "MUST_BE_SET_IN_ENV"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
     admin_username: str = "teacher"
+    # admin_password: store a bcrypt hash here in production.
+    # Generate: python -c "import bcrypt; print(bcrypt.hashpw(b'pw', bcrypt.gensalt()).decode())"
+    # Plaintext accepted in development for convenience (logged as warning).
     admin_password: str = "MUST_BE_SET_IN_ENV"
+
+    @property
+    def system_secret(self) -> str:  # type: ignore[override]
+        """Backward-compat alias — always returns jwt_secret_key."""
+        return self.jwt_secret_key
 
     # Speech-to-text configuration
     speech_provider: str = "mock"  # "mock" | "whisper-local"
@@ -66,43 +81,26 @@ class Settings(BaseSettings):
 
     # TTS configuration
     tts_provider: str = "mock"  # "mock" | "edge-tts" | "openai"
-    tts_voice: str = "demo-th"  # default voice ID
-    tts_api_key: str | None = None  # required for openai provider
-    tts_api_base_url: str | None = None  # optional override
+    tts_voice: str = "demo-th"
+    tts_api_key: str | None = None
+    tts_api_base_url: str | None = None
 
     # ------------------------------------------------------------------
-    # Feature Flags — control which modules are active at runtime.
-    # Set via environment: NAMO_ENABLE_SPEECH=false, etc.
-    # All default to True (fully enabled) so existing behaviour is
-    # preserved unless explicitly overridden in .env
+    # Feature Flags
     # ------------------------------------------------------------------
-
-    # Speech-to-text module (SpeechRecognizer)
     enable_speech: bool = True
-    # Computer-vision / attention module (VisionAnalyzer)
     enable_vision: bool = True
-    # Hardware-connected device mode; set False to force mock devices
-    enable_real_devices: bool = False  # safe default: mock only
-    # LLM-based intent classification in NamoNexus (IntentClassifier)
+    enable_real_devices: bool = False
     enable_llm_intent: bool = True
-    # Knowledge retrieval pipeline (KnowledgeService)
     enable_knowledge: bool = True
-    # Empathy engine signal processing
     enable_empathy_engine: bool = True
-    # Phase 5: Multi-signal emotion detection + teaching adaptation
     enable_emotion_engine: bool = True
-    # Text-to-speech synthesis
     enable_tts: bool = True
-    # Hardware/UI integrations for classroom
     enable_classroom_control: bool = True
 
     @property
     def origin_list(self) -> list[str]:
-        return [
-            origin.strip()
-            for origin in self.allowed_origins.split(",")
-            if origin.strip()
-        ]
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
     @property
     def knowledge_root(self) -> Path:
@@ -122,6 +120,13 @@ class Settings(BaseSettings):
 _settings_instance: Settings | None = None
 
 
+def get_settings() -> Settings:
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = Settings()
+    return _settings_instance
+
+
 async def initialize_settings_secrets() -> None:
     """Load external secrets deterministically before serving requests."""
     settings = get_settings()
@@ -135,11 +140,3 @@ async def initialize_settings_secrets() -> None:
     await load_all_secrets()
     if settings.jwt_secret_key == "MUST_BE_SET_IN_ENV":
         logger.warning("JWT secret key still unresolved after secret loading.")
-
-
-def get_settings() -> Settings:
-    global _settings_instance
-    if _settings_instance is None:
-        _settings_instance = Settings()
-
-    return _settings_instance

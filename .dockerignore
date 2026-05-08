@@ -1,0 +1,51 @@
+# FAISS indexes — downloaded from GCS at runtime, never bake into image
+knowledge/
+
+# Python virtual environments
+.venv/
+venv/
+backend/namo_core/venv/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+
+# Compiled Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Local databases
+*.db
+*.sqlite3
+
+# Logs and temp
+logs/
+*.log
+tmp/
+.tmp/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
+.git/
+.gitignore
+
+# Docs and scripts not needed at runtime
+docs/
+scripts/
+tools/
+NamoNexus-Skills/
+NamoNexus-Smart-Classroom.worktrees/
+
+# Secrets — never bake into image
+*.pem
+*.key
+.gcp/

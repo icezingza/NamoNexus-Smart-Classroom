@@ -7,13 +7,21 @@ python-multipart>=0.0.9
 numpy
 faiss-cpu>=1.7.4
 sentence-transformers>=3.0.0
-openai-whisper
-faster-whisper>=1.0.0
-sounddevice
+# Speech processing — used by local Lenovo server only; not needed in Cloud Run container
+# openai-whisper
+# faster-whisper>=1.0.0
+# sounddevice
 edge-tts>=6.6.0
 sqlalchemy>=2.0.0
 psycopg2-binary>=2.9.0
+alembic>=1.13.0
 PyJWT>=2.8.0
-pytest>=8.0.0
+bcrypt>=4.0.0
+slowapi>=0.1.9
+aiofiles>=23.0.0
+cloud-sql-python-connector[pg8000]>=1.0.0
 google-cloud-secret-manager>=2.20.0
+google-cloud-storage>=2.14.0
 redis>=5.0.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
