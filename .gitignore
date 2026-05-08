@@ -3,6 +3,7 @@
 !.env.example
 !.env.production
 *.faiss
+*.index
 *.jsonl
 *_metadata.json
 ingestion_state.json
@@ -28,11 +29,15 @@ Thumbs.db
 # GCS / GCP key files
 scripts/.gcs_key.json
 *.gcs_key.json
+*.json.key
 namo-classroom-*.json
 
 # Runtime SQLite database (contains session data / cached secrets)
 backend/namo_classroom.db
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
 
 # Knowledge data (Sovereign Edge-only — too large for GitHub, stays on Lenovo)
 knowledge/full_tripitaka/

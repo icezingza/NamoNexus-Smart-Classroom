@@ -13,7 +13,7 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
         self.protected_prefixes = ("/classroom", "/nexus", "/notebook")
         # Public paths that bypass auth (read-only, no personal data)
         self.public_paths = ("/notebook/suggest-sources",)
-        self._ws_prefixes = ("/ws", "/notebook/ws")
+        self._ws_prefixes = ("/ws/chat", "/notebook/ws")
 
     async def __call__(self, scope, receive, send):
         # BaseHTTPMiddleware skips dispatch() for WebSocket scopes entirely.
@@ -60,15 +60,13 @@ class EnterpriseAuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(prefix) for prefix in self.protected_prefixes):
             auth = request.headers.get("Authorization")
             if not auth or not auth.startswith("Bearer "):
-                # Fallback for development/testing via query param
-                token = request.query_params.get("token")
-                if not token:
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "Missing/Invalid Security token"},
-                    )
-            else:
-                token = auth.split(" ")[1]
+                # Never accept token via query param — tokens in URLs are logged
+                # by proxies, CDNs, and browser history (security risk).
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Missing Authorization header. Use: Bearer <token>"},
+                )
+            token = auth.split(" ")[1]
 
             try:
                 # Verify JWT signatures and expiration

@@ -100,12 +100,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     async def _push_loop() -> None:
         settings = get_settings()
         if not settings.redis_url:
+            # No Redis: poll at 2 Hz (0.5s) to avoid burning CPU across concurrent connections.
+            # 50ms (20 Hz) was 10× too aggressive — same state rebuild per tick per connection.
             while True:
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.5)
                 payload = await _build_state_payload()
                 await websocket.send_text(json.dumps(payload))
 
-        redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        from namo_core.utils.redis_factory import make_redis
+        redis_client = make_redis()
         pubsub = redis_client.pubsub()
         try:
             await pubsub.subscribe("classroom_state")

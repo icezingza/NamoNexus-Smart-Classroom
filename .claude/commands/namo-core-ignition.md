@@ -19,6 +19,7 @@ flowchart TD
     if-health-passed{If/Else:<br/>Conditional Branch}
     prompt-final-status[Namo Core Ignition Complete.]
     end_1([End])
+    prompt-1778170039769[Enter your prompt here.]
 
     start-1 --> agent-env-check
     agent-env-check --> agent-health-run
@@ -62,15 +63,14 @@ When the workflow completes, call `highlight_group_node({ groupNodeId: "" })` to
 
 **subagent_type**: explore
 
-**Description**: Infrastructure & Secret Audit [NN-500]
+**Description**: Audit ports and secrets
 
 **Prompt**:
 
 ```
-1. Check ports 8000 (Backend), 5173 (Frontend), and 6379 (Redis).
-2. Verify migration of secret logic to `config/gcp_secrets.py`.
-3. Audit .env for Zero-Secret Policy.
-4. Ensure Redis is reachable before starting health checks.
+1. Check if ports 8000 (Backend) and 5173 (Frontend) are active.
+2. Verify .env exists and GCP Secret Manager is correctly wired in `backend/namo_core/config/settings.py`.
+3. Ensure Zero-Secret Policy is maintained.
 ```
 
 **Parallel Execution**: enabled
@@ -88,16 +88,15 @@ Guidelines:
 
 **subagent_type**: explore
 
-**Description**: Async & RAG Purity Audit (20/20) [NN-500]
+**Description**: Run Full Health Check
 
 **Prompt**:
 
 ```
 1. Execute `python scripts/health_check.py --full`.
-2. Parse stdout to confirm ALL 20/20 checks passed.
-3. Audit all FastAPI endpoints for 'def' instead of 'async def' (Strictly no blocking calls).
-4. Verify RAG quality for 168,861 vectors (Short Chunk Strategy).
-5. Report any violations with a witty burn as Namo.
+2. Parse stdout to confirm 16/16 checks passed.
+3. Specifically verify FAISS index vector count is 168,861.
+4. Check PII hashing and TTS engine status.
 ```
 
 **Parallel Execution**: enabled
@@ -178,6 +177,14 @@ Namo Core Ignition Complete.
 {{message}}
 
 Everything is set for the Smart Classroom session.
+```
+
+#### prompt-1778170039769(Enter your prompt here.)
+
+```
+Enter your prompt here.
+
+You can use variables like {{variableName}}.
 ```
 
 ### If/Else Node Details

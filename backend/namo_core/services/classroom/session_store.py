@@ -24,7 +24,8 @@ class ClassroomSessionStore:
         # file_path is kept for backward compatibility but ignored in Redis mode
         settings = get_settings()
         if settings.redis_url:
-            self.redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            from namo_core.utils.redis_factory import make_redis_sync
+            self.redis = make_redis_sync()
             self.use_redis = True
         else:
             # Fallback for local testing if redis_url is not set

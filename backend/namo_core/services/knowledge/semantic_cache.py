@@ -53,10 +53,15 @@ class SemanticCache:
             return None
 
     def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
-        """Calculate cosine similarity between two vectors."""
-        dot_product = np.dot(vec1, vec2)
-        magnitude = np.linalg.norm(vec1) * np.linalg.norm(vec2)
-        return dot_product / magnitude if magnitude > 0 else 0.0
+        """Calculate cosine similarity between two vectors.
+
+        Accepts 1-D (384,) or 2-D (1, 384) arrays — flattens before computing.
+        """
+        v1 = np.asarray(vec1).flatten()
+        v2 = np.asarray(vec2).flatten()
+        dot_product = np.dot(v1, v2)
+        magnitude = np.linalg.norm(v1) * np.linalg.norm(v2)
+        return float(dot_product / magnitude) if magnitude > 0 else 0.0
 
     def get_cached_response(self, query: str) -> Tuple[Optional[Dict[str, Any]], float]:
         """

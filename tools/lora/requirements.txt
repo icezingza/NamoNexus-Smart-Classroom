@@ -1,0 +1,22 @@
+# Namo-LoRA fine-tuning dependencies
+# Install: pip install -r tools/lora/requirements.txt
+
+# Core training stack
+torch>=2.2.0                  # CUDA 12.1+ recommended
+transformers>=4.41.0
+datasets>=2.19.0
+accelerate>=0.30.0
+peft>=0.11.0                  # LoRA / QLoRA
+trl>=0.9.0                    # SFTTrainer
+
+# 4-bit quantization (QLoRA) — Linux/CUDA only
+bitsandbytes>=0.43.0
+
+# Evaluation
+rouge-score>=0.1.2
+
+# Optional: experiment tracking
+# wandb>=0.17.0
+
+# Optional: GGUF export (install separately from source or pre-built)
+# llama-cpp-python>=0.2.70

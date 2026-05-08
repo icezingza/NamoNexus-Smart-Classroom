@@ -10,3 +10,8 @@ python-dotenv==1.0.0
 sqlalchemy==2.0.25
 asyncpg==0.29.0
 httpx==0.26.0
+tiktoken==0.5.2
+sentence-transformers==2.2.2
+numpy==1.26.3
+redis==5.0.1
+python-multipart==0.0.9

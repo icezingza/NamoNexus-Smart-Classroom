@@ -124,6 +124,36 @@ class KnowledgeService:
 
         return results
 
+    async def search_async(self, query: str, top_k: int = 3) -> list[Dict[str, Any]]:
+        """Concurrent search across all wisdom sources."""
+        if not query.strip():
+            return []
+
+        import asyncio
+        tasks = []
+        retriever = self._get_tripitaka_retriever()
+        if retriever:
+            tasks.append(asyncio.to_thread(retriever.search, query, top_k))
+        else:
+            tasks.append(asyncio.sleep(0, result=[])) # Dummy task
+
+        tasks.append(asyncio.to_thread(self.global_lib.search, query, top_k))
+        
+        results_nested = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        flattened = []
+        for i, res in enumerate(results_nested):
+            if isinstance(res, list):
+                if i == 1: # Global Library results
+                    for hit in res:
+                        hit["source"] = "global_library"
+                flattened.extend(res)
+            elif isinstance(res, Exception):
+                logger.error(f"Search source failed: {res}")
+        
+        flattened.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        return flattened[:top_k * 2]
+
     def build_context(self, query: str, top_k: int = 3) -> str:
         """
         Search and build formatted context for LLM injection.

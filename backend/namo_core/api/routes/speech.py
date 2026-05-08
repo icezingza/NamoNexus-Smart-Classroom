@@ -18,21 +18,24 @@ Typical response (real provider):
 """
 from __future__ import annotations
 
-import tempfile, os
-from fastapi import APIRouter, File, HTTPException, UploadFile
+import logging
+import os
+import tempfile
+
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 
 from namo_core.modules.speech.recognizer import SpeechRecognizer
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/speech", tags=["speech"])
+
+# Max audio upload: 25 MB — typical webm/mp3 under 8s is well under 1 MB
+_MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
 
 
 @router.get("/status")
 def speech_status() -> dict:
-    """Return the active speech provider and microphone readiness.
-
-    Returns:
-        Dict with ``provider``, ``enabled``, and ``device`` sub-dict.
-    """
+    """Return the active speech provider and microphone readiness."""
     recognizer = SpeechRecognizer()
     from namo_core.devices.microphone.capture import (
         MicrophoneCaptureConfig,
@@ -59,21 +62,13 @@ def speech_status() -> dict:
 
 @router.post("/transcribe")
 def transcribe() -> dict:
-    """Run one listen-and-transcribe cycle and return the result.
-
-    Uses VAD to detect speech start/end automatically. Returns immediately
-    with ``status: idle`` if no speech is detected within the listen timeout.
-
-    Raises:
-        HTTPException 503: When the microphone or Whisper model is unavailable.
-    """
+    """Run one listen-and-transcribe cycle and return the result."""
     try:
         recognizer = SpeechRecognizer()
         result = recognizer.transcribe()
     except Exception as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    # Surface errors as 503 so the client can retry cleanly
     if result.get("status") == "error":
         raise HTTPException(
             status_code=503,
@@ -85,22 +80,24 @@ def transcribe() -> dict:
 
 @router.post("/transcribe-upload")
 async def transcribe_upload(audio: UploadFile = File(...)) -> dict:
-    """รับไฟล์เสียงจาก Browser (webm/wav/mp3) แล้วแปลงเป็นข้อความด้วย FasterWhisper.
+    """รับไฟล์เสียงจาก Browser แล้วแปลงเป็นข้อความด้วย FasterWhisper."""
+    from namo_core.config.settings import get_settings
+    settings = get_settings()
 
-    ใช้สำหรับ Push-to-Talk จาก Tablet ที่ส่ง MediaRecorder blob มาผ่าน HTTP.
+    raw_bytes = await audio.read(_MAX_UPLOAD_BYTES + 1)
+    if len(raw_bytes) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Audio file too large. Maximum size is 25 MB.",
+        )
 
-    Returns:
-        Dict with ``transcript``, ``confidence``, ``language``, ``provider``.
-    """
+    tmp_path: str | None = None
     try:
         from namo_core.modules.speech.transcriber import FasterWhisperTranscriber
-        from namo_core.config.settings import get_settings
-        settings = get_settings()
 
-        # บันทึกไฟล์ลง temp
         suffix = os.path.splitext(audio.filename or "audio.webm")[1] or ".webm"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(await audio.read())
+            tmp.write(raw_bytes)
             tmp_path = tmp.name
 
         transcriber = FasterWhisperTranscriber(
@@ -108,11 +105,22 @@ async def transcribe_upload(audio: UploadFile = File(...)) -> dict:
             language=settings.speech_language,
         )
         result = transcriber.transcribe_file(tmp_path)
+    except HTTPException:
+        raise
+    except (ValueError, RuntimeError) as exc:
+        logger.error("Transcription failed (known error): %s", exc, exc_info=True)
+        detail = str(exc) if settings.env != "production" else "Transcription service unavailable"
+        raise HTTPException(status_code=503, detail=detail) from exc
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("Transcription failed (unexpected): %s", exc, exc_info=True)
+        detail = str(exc) if settings.env != "production" else "Transcription service unavailable"
+        raise HTTPException(status_code=503, detail=detail) from exc
     finally:
-        try: os.unlink(tmp_path)
-        except Exception: pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError as cleanup_exc:
+                logger.warning("Failed to remove temp file %s: %s", tmp_path, cleanup_exc)
 
     return {
         "transcript": result.get("text", ""),

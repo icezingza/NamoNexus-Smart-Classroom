@@ -152,8 +152,8 @@ class OrchestratorSingleton:
         answer = "[reasoning service unavailable]"
         if self.reasoner:
             try:
-                reason = await asyncio.to_thread(
-                    self.reasoner.chat,
+                # ReasoningService methods are now fully async
+                reason = await self.reasoner.chat(
                     messages=[{"role": "user", "content": stt_text}],
                     teaching_hint=teaching_hint,
                     session_id=session_id,

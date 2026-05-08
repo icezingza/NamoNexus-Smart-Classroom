@@ -1,7 +1,10 @@
 {
-  "mode": "demo",
+  "mode": "lesson",
   "lesson": "Introduction to Buddhism",
   "students_connected": 1,
-  "projector": "standby",
-  "assistant_state": "ready"
+  "projector": "lesson",
+  "assistant_state": "ready",
+  "lesson_id": "lesson-intro-buddhism",
+  "current_slide": 2,
+  "total_slides": 5
 }

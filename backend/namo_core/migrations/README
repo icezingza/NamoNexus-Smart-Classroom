@@ -1,0 +1,15 @@
+NamoNexus — Alembic Migrations
+==============================
+
+Run from: backend/namo_core/
+
+  alembic upgrade head          Apply all pending migrations
+  alembic downgrade -1          Roll back the last migration
+  alembic current               Show current revision
+  alembic history               Show full migration history
+  alembic revision --autogenerate -m "description"
+                                Generate a new migration from model changes
+  alembic upgrade head --sql    Print SQL without applying (dry-run review)
+
+Database URL is read automatically from NAMO_DATABASE_URL in .env or
+GCP Secret Manager — never hard-coded here.

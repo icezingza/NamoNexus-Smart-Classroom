@@ -23,9 +23,30 @@ export function TeacherView() {
     console.log("Clearing chat context...");
   };
 
-  const handleCreateSkill = (description: string, files: File[]) => {
+  const handleCreateSkill = async (description: string, files: File[]) => {
     console.log("Creating skill with description:", description, "and files:", files);
-    // Future implementation: API call to create skill
+    try {
+      const formData = new FormData();
+      formData.append("description", description);
+      files.forEach(file => {
+        formData.append("files", file);
+      });
+
+      const response = await fetchWithAuth(`${httpUrl}/skills/sync`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header, browser will set it automatically with boundary for FormData
+      });
+
+      if (!response.ok) {
+        console.error("Failed to sync skill", await response.text());
+        return;
+      }
+
+      console.log("Skill sync started successfully");
+    } catch (error) {
+      console.error("Error creating skill:", error);
+    }
   };
 
   return (

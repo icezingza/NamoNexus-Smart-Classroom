@@ -7,7 +7,10 @@ strictly from provided sources.
 import httpx
 import logging
 import re
+import asyncio
 from typing import List, Dict, Any, Optional
+import tiktoken
+
 from namo_core.services.knowledge.knowledge_service import ContextBuilder
 from namo_core.config.settings import get_settings
 
@@ -20,9 +23,10 @@ class NotebookService:
     def __init__(self, db: Session = None):
         self.db = db
         self.context_builder = ContextBuilder()
+        self._encoding = tiktoken.get_encoding("cl100k_base") # Standard for GPT-4/Llama-3 tokenization
 
-    def _call_groq_sync(self, prompt: str) -> str:
-        """เรียก Groq API แบบ Synchronous โดยตรง (ปลอดภัยใน BackgroundTask thread)"""
+    async def _call_groq_async(self, prompt: str) -> str:
+        """เรียก Groq API แบบ Asynchronous ป้องกันการบล็อก Thread Pool"""
         settings = get_settings()
         api_key = settings.reasoning_api_key.strip() if settings.reasoning_api_key else None
         base_url = settings.reasoning_api_base_url or "https://api.groq.com/openai/v1"
@@ -33,9 +37,12 @@ class NotebookService:
             logger.warning("No API key configured, returning mock response")
             return f"[Mock Response] ไม่มี API Key กรุณาตั้งค่า NAMO_REASONING_API_KEY ใน .env"
 
+        from namo_core.api.middleware import request_id_context
+        trace_id = request_id_context.get()
+
         try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
                     f"{base_url}/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}".strip(),
@@ -50,10 +57,10 @@ class NotebookService:
                 data = response.json()
                 return data["choices"][0]["message"]["content"].strip()
         except httpx.TimeoutException:
-            logger.error("Groq API timed out after %s seconds", timeout)
+            logger.error("[%s] Groq API timed out after %s seconds", trace_id, timeout)
             return f"[Error] Groq API ตอบกลับช้าเกินไป (Timeout {timeout}s)"
         except Exception as exc:
-            logger.error("Groq API call failed: %s", exc)
+            logger.error("[%s] Groq API call failed: %s", trace_id, exc)
             return f"[Error] เกิดข้อผิดพลาด: {exc}"
 
     def audit_log(self, teacher_id: int, action: str, notebook_id: int = None, instruction: str = None, ip: str = None):
@@ -87,10 +94,20 @@ class NotebookService:
         
         return sanitized
 
-    def _calculate_tokens(self, sources: List[Dict]) -> int:
-        """ประเมินจำนวน Token เบื้องต้น (ประมาณ 4 ตัวอักษรต่อ 1 token)"""
-        total_chars = sum(len(s.get("text", "")) for s in sources)
-        return total_chars // 4
+    def _calculate_tokens(self, text: str) -> int:
+        """นับ Token แม่นยำโดยใช้ tiktoken (Sovereign Edition)"""
+        return len(self._encoding.encode(text))
+
+    def _get_context_with_limit(self, sources: List[Dict], limit: int = 6000) -> str:
+        """สร้าง Context โดยควบคุมไม่ให้เกิน Token Limit"""
+        context = ""
+        for i, src in enumerate(sources):
+            chunk = f"\n[{i+1}] {src.get('title')}\n{src.get('text')}\n---"
+            if self._calculate_tokens(context + chunk) > limit:
+                logger.warning(f"Context limit reached ({limit} tokens). Truncating sources.")
+                break
+            context += chunk
+        return context
 
     def list_teacher_notebooks(self, teacher_id: int):
         self.audit_log(teacher_id, "list")
@@ -154,6 +171,25 @@ class NotebookService:
             job.error_message = error
             self.db.commit()
 
+    def cleanup_stale_jobs(self, hours: int = 1):
+        """ล้างงานที่ค้างอยู่ในสถานะ pending นานเกินไป (Recovery Mechanism)"""
+        from datetime import datetime, timedelta
+        threshold = datetime.utcnow() - timedelta(hours=hours)
+        stale_jobs = self.db.query(NotebookJob).filter(
+            NotebookJob.status == "pending",
+            NotebookJob.created_at <= threshold
+        ).all()
+        
+        for job in stale_jobs:
+            job.status = "failed"
+            job.error_message = f"Job timed out (Stale for > {hours}h)"
+            logger.info(f"Marking job {job.id} as failed (stale)")
+        
+        if stale_jobs:
+            self.db.commit()
+            return len(stale_jobs)
+        return 0
+
     def save_generated_content(self, notebook_id: int, mode: str, title: str, content: str, instruction: str = ""):
         content_obj = NotebookContent(
             notebook_id=notebook_id,
@@ -166,12 +202,10 @@ class NotebookService:
         self.db.commit()
         return content_obj
 
-    def generate_briefing_doc(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
+    async def generate_briefing_doc(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
-        if self._calculate_tokens(sources) > 8000:
-            return {"error": "ข้อมูลมีขนาดใหญ่เกินไป (Token Limit Exceeded)"}
+        context = self._get_context_with_limit(sources)
 
-        context = self.context_builder.build(sources)
         prompt = (
             "คุณคือผู้ช่วยอัจฉริยะสำหรับคุณครูสอนธรรมะ (Dhamma Teacher Assistant).\n"
             "ภารกิจของคุณคือสร้าง 'เอกสารสรุปเตรียมสอน (Briefing Doc)' โดยอ้างอิงจากแหล่งข้อมูลที่ให้มาเท่านั้น\n\n"
@@ -185,12 +219,12 @@ class NotebookService:
             f"{context}\n"
             "------------------\n"
         )
-        content = self._call_groq_sync(prompt)
+        content = await self._call_groq_async(prompt)
         return {"title": "Briefing Doc", "content": content, "source_count": len(sources)}
 
-    def generate_faq_study_guide(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
+    async def generate_faq_study_guide(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
-        context = self.context_builder.build(sources)
+        context = self._get_context_with_limit(sources)
         prompt = (
             "จงสร้าง 'คู่มือการเรียนรู้และรายการคำถาม-คำตอบ (Study Guide & FAQ)' จากแหล่งข้อมูลที่ให้มาเท่านั้น\n\n"
             f"คำสั่งพิเศษจากคุณครู: {instr if instr else 'ไม่มี'}\n\n"
@@ -199,40 +233,41 @@ class NotebookService:
             "--- แหล่งข้อมูล ---\n"
             f"{context}\n"
         )
-        content = self._call_groq_sync(prompt)
+        content = await self._call_groq_async(prompt)
         return {"title": "Study Guide & FAQ", "content": content, "source_count": len(sources)}
 
-    def generate_audio_overview_script(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
+    async def generate_audio_overview_script(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
-        context = self.context_builder.build(sources)
+        context = self._get_context_with_limit(sources)
         prompt = (
             "จงสร้าง 'บทสนทนาเจาะลึกธรรมะ (Dhamma Deep Dive)' สำหรับผู้พูด 2 คน: [ครูนาโม] และ [น้องแก้ว]\n"
             f"คำสั่งพิเศษ: {instr}\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        content = self._call_groq_sync(prompt)
+        content = await self._call_groq_async(prompt)
         return {"title": "Audio Overview Script", "content": content, "source_count": len(sources)}
 
-    def generate_flashcards(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
+    async def generate_flashcards(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
-        context = self.context_builder.build(sources)
+        context = self._get_context_with_limit(sources)
         prompt = (
             "จงสร้าง 'Flashcards' จากแหล่งข้อมูลเท่านั้น\n"
             f"คำสั่งพิเศษ: {instr}\n\n"
             "รูปแบบ:\nFlashcard #[ตัวเลข]\nด้านหน้า: [คำถาม]\nด้านหลัง: [คำตอบ]\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        content = self._call_groq_sync(prompt)
+        content = await self._call_groq_async(prompt)
         return {"title": "Flashcards", "content": content, "source_count": len(sources)}
 
-    def generate_quiz(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
+    async def generate_quiz(self, sources: List[Dict[str, Any]], instruction: str = "") -> Dict[str, Any]:
         instr = self._validate_instruction(instruction)
-        context = self.context_builder.build(sources)
+        context = self._get_context_with_limit(sources)
         prompt = (
             "จงสร้าง 'แบบทดสอบ (Quiz)' จากแหล่งข้อมูลเท่านั้น\n"
             f"คำสั่งพิเศษ: {instr}\n\n"
             "รูปแบบ:\nข้อที่ [ตัวเลข]: [โจทย์]\nก) ... ข) ... ค) ... ง) ...\nเฉลย: [คำตอบ] เพราะ [เหตุผล]\n\n"
             f"--- แหล่งข้อมูล ---\n{context}\n"
         )
-        content = self._call_groq_sync(prompt)
+        content = await self._call_groq_async(prompt)
         return {"title": "Quiz", "content": content, "source_count": len(sources)}
+

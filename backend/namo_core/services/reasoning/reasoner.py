@@ -1,12 +1,11 @@
 """ReasoningService — async Namo Core reasoning with Tripitaka RAG + Session Memory."""
 
-from __future__ import annotations
-
+import asyncio
 from asyncio import to_thread
 
 from namo_core.config.settings import get_settings
 from namo_core.services.knowledge.knowledge_service import KnowledgeService
-from namo_core.services.knowledge.tripitaka_retriever import search_tripitaka
+from namo_core.services.knowledge.tripitaka_retriever import get_tripitaka_retriever
 from namo_core.services import memory as memory_svc
 from namo_core.services.reasoning.providers.factory import build_reasoning_provider
 from namo_core.services.reasoning.providers.mock_provider import MockReasoningProvider
@@ -14,9 +13,10 @@ from namo_core.services.reasoning.providers.mock_provider import MockReasoningPr
 _TRIPITAKA_TOP_K = 3
 
 
-def _build_tripitaka_context(query: str) -> tuple[str, list[dict]]:
-    """ดึง Tripitaka RAG chunks และสร้าง 'ข้อมูลอ้างอิง' block สำหรับ LLM prompt."""
-    chunks = search_tripitaka(query, top_k=_TRIPITAKA_TOP_K)
+async def _build_tripitaka_context_async(query: str) -> tuple[str, list[dict]]:
+    """ดึง Tripitaka RAG chunks และสร้าง 'ข้อมูลอ้างอิง' block สำหรับ LLM prompt (Async)."""
+    retriever = get_tripitaka_retriever()
+    chunks = await to_thread(retriever.search, query, top_k=_TRIPITAKA_TOP_K)
     if not chunks:
         return "", []
 
@@ -47,22 +47,35 @@ class ReasoningService:
         self.knowledge = KnowledgeService()
 
     async def explain(self, query: str, teaching_hint: str = "") -> dict:
-        """Generate a Dhamma explanation using Tripitaka RAG + EmpathyEngine hint (async).
+        """Generate a Dhamma explanation using Parallel Tripitaka RAG + EmpathyEngine hint (Async)."""
+        from namo_core.api.middleware import request_id_context
+        trace_id = request_id_context.get()
 
-        Context priority:
-          1. Tripitaka FAISS chunks (Phase 11 RAG) — injected as 'ข้อมูลอ้างอิง'
-          2. KnowledgeService results (materials/lessons fallback)
-          3. teaching_hint from EmpathyEngine prepended as bracketed instruction
-        """
-        # CPU-bound FAISS + file I/O → run in thread pool
-        tripitaka_context, tripitaka_chunks = await to_thread(
-            _build_tripitaka_context, query
-        )
-        results = await to_thread(self.knowledge.search, query)
-        legacy_context = self.knowledge.context_builder.build(
-            results or await to_thread(self.knowledge.search, "")
-        )
+        # 1. Parallel Retrieval (O(max(N)) latency)
+        tasks = [
+            _build_tripitaka_context_async(query),
+            self.knowledge.search_async(query, top_k=3)
+        ]
+        
+        results_nested = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Unpack Tripitaka results
+        tripitaka_res = results_nested[0]
+        if isinstance(tripitaka_res, Exception):
+            logger.error(f"[{trace_id}] Tripitaka context build failed: {tripitaka_res}")
+            tripitaka_context, tripitaka_chunks = "", []
+        else:
+            tripitaka_context, tripitaka_chunks = tripitaka_res
+            
+        # Unpack Knowledge results (Materials/Lessons)
+        results = results_nested[1]
+        if isinstance(results, Exception):
+            logger.error(f"[{trace_id}] Knowledge search failed: {results}")
+            results = []
+            
+        legacy_context = self.knowledge.context_builder.build(results)
 
+        # Combine Context
         if tripitaka_context:
             context = tripitaka_context
             if legacy_context:
@@ -72,6 +85,7 @@ class ReasoningService:
 
         context = _prepend_hint(context, teaching_hint)
 
+        # 2. Reasoning Job
         response, metadata = await self._run_provider(
             mode="generate", query=query, context=context
         )
@@ -89,7 +103,10 @@ class ReasoningService:
         teaching_hint: str = "",
         session_id: str = "",
     ) -> dict:
-        """Run a multi-turn chat session with Tripitaka RAG context + Session Memory (async)."""
+        """Run a multi-turn chat session with Parallel RAG context + Session Memory (Async)."""
+        from namo_core.api.middleware import request_id_context
+        trace_id = request_id_context.get()
+
         if session_id:
             history = memory_svc.get_history(session_id)
             if history:
@@ -104,13 +121,27 @@ class ReasoningService:
             "",
         )
 
-        tripitaka_context, tripitaka_chunks = await to_thread(
-            _build_tripitaka_context, last_query
-        )
-        results = await to_thread(self.knowledge.search, last_query)
-        legacy_context = self.knowledge.context_builder.build(
-            results or await to_thread(self.knowledge.search, "")
-        )
+        # 1. Parallel Retrieval
+        tasks = [
+            _build_tripitaka_context_async(last_query),
+            self.knowledge.search_async(last_query, top_k=3)
+        ]
+        
+        results_nested = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        tripitaka_res = results_nested[0]
+        if isinstance(tripitaka_res, Exception):
+            logger.error(f"[{trace_id}] Tripitaka chat context build failed: {tripitaka_res}")
+            tripitaka_context, tripitaka_chunks = "", []
+        else:
+            tripitaka_context, tripitaka_chunks = tripitaka_res
+            
+        results = results_nested[1]
+        if isinstance(results, Exception):
+            logger.error(f"[{trace_id}] Knowledge chat search failed: {results}")
+            results = []
+            
+        legacy_context = self.knowledge.context_builder.build(results)
 
         if tripitaka_context:
             context = tripitaka_context
@@ -121,6 +152,7 @@ class ReasoningService:
 
         context = _prepend_hint(context, teaching_hint)
 
+        # 2. Reasoning Job
         response, metadata = await self._run_provider(
             mode="chat", query=last_query, messages=messages, context=context
         )

@@ -63,9 +63,44 @@ class GlobalLibraryRetriever:
                     continue
                 item = dict(book["metadata"][idx])
                 item["score"] = float(score)
+                if "source" not in item:
+                    item["source"] = "global_library"
                 all_hits.append(item)
         all_hits.sort(key=lambda x: x["score"], reverse=True)
         return all_hits[:top_k]
+
+    def add_document(self, metadata: list[dict], vectors: np.ndarray) -> None:
+        """Dynamically add a new document index to the retriever and persist to disk."""
+        if not metadata or len(metadata) != vectors.shape[0]:
+            raise ValueError("metadata length must match vectors count")
+        
+        from namo_core.api.middleware import request_id_context
+        trace_id = request_id_context.get()
+        
+        dim = vectors.shape[1]
+        index = faiss.IndexFlatIP(dim)
+        index.add(vectors)
+        
+        # 1. Update In-memory state
+        self.books.append({"index": index, "metadata": metadata})
+        
+        # 2. Persistence: Save to dynamic skills file
+        try:
+            timestamp = int(np.datetime64('now').astype(int))
+            skill_name = f"sync_{timestamp}"
+            meta_path = _BATCH_DIR / f"{skill_name}_metadata.json"
+            index_path = _BATCH_DIR / f"{skill_name}.index"
+            
+            # Ensure directory exists
+            _BATCH_DIR.mkdir(parents=True, exist_ok=True)
+            
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
+            
+            faiss.write_index(index, str(index_path))
+            logger.info(f"[{trace_id}] Skill persisted to disk: {skill_name}")
+        except Exception as exc:
+            logger.error(f"[{trace_id}] Failed to persist skill to disk: {exc}")
 
 
 _retriever: GlobalLibraryRetriever | None = None

@@ -1,4 +1,5 @@
-import { LucideIcon, Power, Mic, MicOff, Trash2, Globe } from 'lucide-react';
+import { Power, Mic, MicOff, Trash2, Globe } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { NamoStatus } from '../hooks/useNamoSocket';
 
 interface ControlBarProps {

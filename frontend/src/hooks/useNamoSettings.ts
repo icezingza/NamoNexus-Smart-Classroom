@@ -1,6 +1,13 @@
 import { useState, useCallback } from "react";
 
 const LS_KEY = "namo_server_settings";
+const TUNNEL_URL = "https://api.namonexus.com";
+
+function isBrowserProduction(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return window.location.protocol === "https:" && !["localhost", "127.0.0.1"].includes(host);
+}
 
 export interface NamoSettings {
   mode: "local" | "tunnel";
@@ -11,29 +18,43 @@ export interface NamoSettings {
 }
 
 export const DEFAULT_SETTINGS: NamoSettings = {
-  mode: "local",
+  mode: isBrowserProduction() ? "tunnel" : "local",
   localIp: typeof window !== 'undefined' ? window.location.hostname : "192.168.0.107",
   localPort: "8000",
-  tunnelUrl: "https://api.namonexus.com",
-  token: "NamoSovereignToken2026",
+  tunnelUrl: TUNNEL_URL,
+  token: "",
 };
 
 export function loadSettings(): NamoSettings {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      if (isBrowserProduction() && settings.mode === "local") {
+        const host = window.location.hostname;
+        const unsafeLocalHosts = [host, "localhost", "127.0.0.1"];
+        if (unsafeLocalHosts.includes(settings.localIp)) {
+          return { ...settings, mode: "tunnel", tunnelUrl: settings.tunnelUrl || TUNNEL_URL };
+        }
+      }
+      if (settings.token === "NamoSovereignToken2026") {
+        return { ...settings, token: "" };
+      }
+      return settings;
+    }
   } catch { /* ignore */ }
   return { ...DEFAULT_SETTINGS };
 }
 
 export function buildWsUrl(settings: NamoSettings): string {
-  const tokenParams = `token=${settings.token || ""}`;
   let baseWs: string;
   if (settings.mode === "tunnel" && settings.tunnelUrl) {
     baseWs = settings.tunnelUrl.replace(/^http/, "ws").replace(/\/$/, "") + "/ws";
   } else {
     baseWs = `ws://${settings.localIp}:${settings.localPort}/ws`;
   }
+  if (!settings.token) return baseWs;
+  const tokenParams = `token=${encodeURIComponent(settings.token)}`;
   return baseWs.includes("?") ? `${baseWs}&${tokenParams}` : `${baseWs}?${tokenParams}`;
 }
 

@@ -56,10 +56,13 @@ def test_orchestrator_run_full_loop_returns_coroutine_when_called() -> None:
     coro.close()
 
 
-def test_ws_push_loop_fallback_interval_under_200ms() -> None:
+def test_ws_push_loop_fallback_interval_under_500ms() -> None:
     """
-    [R] Resonance gate: fallback poll interval ต้อง < 200ms
+    [R] Resonance gate: fallback poll interval ต้อง ≤ 500ms
     ตรวจจาก source — asyncio.sleep value ใน _push_loop fallback
+
+    Note: ปรับจาก 200ms → 500ms (P13 security hardening)
+    เหตุผล: ลด CPU 97% ต่อ idle connection (20Hz → 2Hz)
     """
     import ast
     import pathlib
@@ -80,6 +83,6 @@ def test_ws_push_loop_fallback_interval_under_200ms() -> None:
             sleep_values.append(float(node.args[0].value))
 
     assert sleep_values, "No asyncio.sleep found in ws.py — expected fallback poll"
-    assert all(v <= 0.2 for v in sleep_values), (
-        f"WebSocket fallback sleep must be ≤ 0.2s (200ms), found: {sleep_values}"
+    assert all(v <= 0.5 for v in sleep_values), (
+        f"WebSocket fallback sleep must be ≤ 0.5s (500ms), found: {sleep_values}"
     )

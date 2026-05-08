@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, FileText, FileCode, AlertCircle, FileType } from 'lucide-react';
+import { Upload, FileCode, AlertCircle, FileType } from 'lucide-react';
 
 interface DocumentToSkillModalProps {
   isOpen: boolean;
