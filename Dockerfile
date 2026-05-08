@@ -11,8 +11,8 @@ RUN apt-get update \
 COPY backend/namo_core/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source (knowledge/ excluded via .dockerignore — downloaded from GCS at runtime)
-COPY backend/ ./backend/
+# Copy namo_core package directly to /app so `import namo_core` resolves without PYTHONPATH tricks
+COPY backend/namo_core/ ./namo_core/
 
 # Cloud Run injects PORT; default 8000 matches our settings
 EXPOSE 8000
