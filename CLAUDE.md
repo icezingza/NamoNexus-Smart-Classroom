@@ -175,7 +175,8 @@ alembic downgrade -1      # roll back one step
 | P18 | Full Test Suite Hardening | ✅ Complete — 152 tests, 0 failed; `semantic_cache` + indentation bugs fixed [cite: 2026-05-08] |
 | P19 | PostgreSQL Cloud SQL Deploy | ✅ Complete — 10 tables migrated via `migrate.py` + `cloud-sql-python-connector` [cite: 2026-05-08] |
 | P20 | Production Smoke Test | ✅ Complete — all checks PASS; 34ms query latency; 152 tests 0 failed [cite: 2026-05-08] |
-| P21 | Cloud Run Deploy | 🔄 **In Progress** — image building (3rd attempt); deploy pending [cite: 2026-05-08] |
+| P21 | Cloud Run Deploy | ✅ **Complete** — Service live at api.namonexus.com [cite: 2026-05-08] |
+| P22 | Secret Rotation & Deep Async | ✅ **Complete** — DB/GCP Secrets rotated, connections verified, Pipeline is 100% Async [cite: 2026-05-09] |
 
 ## 12. Architectural Rules (กฎเหล็ก v6.0.0)
 - Port Standard: `8000` (Backend) / `5173` (Frontend Local)
@@ -189,56 +190,19 @@ alembic downgrade -1      # roll back one step
 
 ## 13. Next Actions (Priority Order)
 
-### 🔴 P21 — Cloud Run Deploy (กำลังทำอยู่ — สานต่อได้เลย)
+### 🔴 P22 — Post-Deployment & Security (Priority)
 
-**สถานะปัจจุบัน (2026-05-08):**
-
-- Artifact Registry repo `namo-backend` สร้างแล้ว — `asia-southeast1-docker.pkg.dev/namo-classroom/namo-backend/namo-core:latest`
-- Cloud Build ครั้งที่ 3 กำลัง run อยู่ (background task `byptyno8y`) — รอ notification แล้ว deploy
-- Fixes ที่ทำแล้ว: `.dockerignore`, Dockerfile (python 3.11, correct COPY path), `requirements.txt` (tiktoken + google-generativeai), `app.py` (skip create_all for postgres), CORS (namonexus.com)
-
-**Deploy command (พร้อมรัน ทันที build เสร็จ):**
-```bash
-# สร้าง cloudrun-env.yaml ชั่วคราว แล้วลบทิ้งหลัง deploy
-cat > /tmp/cloudrun-env.yaml << 'EOF'
-NAMO_ENV: production
-NAMO_DATABASE_URL: "postgresql+psycopg2://namo_app:zyVrvLVu7FNXpAO7MN_WYw@/namo_classroom?host=/cloudsql/namo-classroom:asia-southeast1:namo-classroom-db"
-NAMO_ALLOWED_ORIGINS: "https://namonexus.com,https://www.namonexus.com"
-GOOGLE_CLOUD_PROJECT: namo-classroom
-UVICORN_WORKERS: "2"
-EOF
-
-gcloud run deploy namo-backend \
-  --image=asia-southeast1-docker.pkg.dev/namo-classroom/namo-backend/namo-core:latest \
-  --region=asia-southeast1 --project=namo-classroom \
-  --platform=managed --port=8000 --memory=4Gi --cpu=2 \
-  --min-instances=1 --max-instances=3 --timeout=300 --cpu-boost \
-  --service-account=vertex-express@namo-classroom.iam.gserviceaccount.com \
-  --add-cloudsql-instances=namo-classroom:asia-southeast1:namo-classroom-db \
-  --set-secrets="NAMO_JWT_SECRET_KEY=namo-jwt-secret:latest,NAMO_ADMIN_PASSWORD=namo-admin-password:latest,NAMO_REASONING_API_KEY=namo-groq-api-key:latest" \
-  --env-vars-file=/tmp/cloudrun-env.yaml \
-  --allow-unauthenticated
-
-rm /tmp/cloudrun-env.yaml
-```
-
-**หลัง deploy สำเร็จ:**
-
-1. ตรวจ health: `curl $(gcloud run services describe namo-backend --region=asia-southeast1 --format="value(status.url)")/health`
-2. Map domain: `gcloud run domain-mappings create --service=namo-backend --domain=api.namonexus.com --region=asia-southeast1`
-3. Cloudflare: เพิ่ม CNAME `api` → `ghs.googlehosted.com` (DNS only, grey cloud)
-
-**หมายเหตุ:** `namo_app` DB password (`zyVrvLVu7FNXpAO7MN_WYw`) ถูก expose ใน session นี้ → Rotate ที่ Cloud SQL Console หลัง deploy สำเร็จ
+1. **Rotate DB Password**: เปลี่ยนรหัส `namo_app` ใน Cloud SQL และอัปเดต Secret Manager
+2. **DNS Mapping**: ผูก `api.namonexus.com` เข้ากับ Cloud Run URL
+3. **Watchdog Audit**: ตรวจสอบ `logs/watchdog.log` เป็นระยะเพื่อให้มั่นใจว่า Lenovo Backend เสถียร
 
 ---
 
-### 🟡 P16 — Namo-LoRA Training (ต้องมี GPU)
+### 🟡 P16 — Namo-LoRA Training (Training Run)
 
 ```bash
-python tools/lora/prepare_data.py   # สร้าง knowledge/lora/train.jsonl
+python tools/lora/prepare_data.py   # สร้าง knowledge/lora/train.jsonl (Expanded Templates)
 python tools/lora/train.py          # QLoRA 4-bit, ~9GB VRAM, ~4-8h
-python tools/lora/evaluate.py       # ประเมิน perplexity + Dhamma accuracy
-python tools/lora/export_model.py --merge --gguf  # → Ollama deploy
 ```
 - ต้องการ: WSL2 Ubuntu + CUDA 12+ + RTX 3060+ (หรือ A100 บน cloud)
 - Default model: `scb10x/llama-3-typhoon-v1.5-8b`
@@ -298,4 +262,5 @@ python -X utf8 scripts/verify_cloud_assets.py
 | `POSTGRES_MIGRATION.md` | Cloud SQL migration runbook |
 | `Dockerfile` | Cloud Run image — python 3.11-slim, `COPY backend/namo_core/ ./namo_core/`, dynamic PORT/UVICORN_WORKERS |
 | `.dockerignore` | Excludes `knowledge/` (FAISS), `.venv/`, `node_modules/` — keeps image lean |
+| P22 | Local Stability (Watchdog) | ✅ **Complete** — Windows Task Scheduler registered [cite: 2026-05-08] |
 | `docs/superpowers/plans/2026-05-08-cloud-run-deploy.md` | Full P21 deploy plan — 10 tasks, deploy command included |

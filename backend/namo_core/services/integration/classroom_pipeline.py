@@ -108,7 +108,7 @@ class ClassroomPipeline:
         meta: dict = {"stages_completed": []}
 
         # ── Stage 1: Emotion Detection ─────────────────────────────────────────
-        emotion_result = self._detect_emotion(perception, transcript)
+        emotion_result = await to_thread(self._detect_emotion, perception, transcript)
         meta["stages_completed"].append("emotion")
         logger.debug(
             "emotion: %s (composite=%.3f)",
@@ -117,7 +117,8 @@ class ClassroomPipeline:
         )
 
         # ── Stage 2: Resonance + EmpathyEngine → teaching_hint ────────────────
-        teaching_hint, tone, student_state = self._run_empathy(
+        teaching_hint, tone, student_state = await to_thread(
+            self._run_empathy,
             perception=perception,
             transcript=transcript,
             emotion_state=emotion_result["emotion_state"],
@@ -127,7 +128,7 @@ class ClassroomPipeline:
         meta["student_state"] = student_state
 
         # ── Stage 3: Current Slide Context ────────────────────────────────────
-        slide_context = self._get_slide_context()
+        slide_context = await self._get_slide_context()
         if slide_context:
             meta["stages_completed"].append("slide_context")
 
@@ -139,7 +140,7 @@ class ClassroomPipeline:
         logger.debug("reasoning sources: %d", len(reasoning_result.get("sources", [])))
 
         # ── Stage 5: Log event + transition assistant state ────────────────────
-        self._log_interaction(query, emotion_result["smoothed_state"])
+        await to_thread(self._log_interaction, query, emotion_result["smoothed_state"])
         meta["stages_completed"].append("event_logged")
 
         # ── Stage 6: TTS (optional) ───────────────────────────────────────────
@@ -215,7 +216,7 @@ class ClassroomPipeline:
             logger.warning("Empathy processing failed: %s", exc)
             return "", "calm", "attentive"
 
-    def _get_slide_context(self) -> dict | None:
+    async def _get_slide_context(self) -> dict | None:
         """Fetch current slide content from SlideController."""
         try:
             if self._slide_controller is None:
@@ -223,7 +224,7 @@ class ClassroomPipeline:
 
                 self._slide_controller = SlideController()
 
-            slide = self._slide_controller.content()
+            slide = await self._slide_controller.content()
             # Only return if we have actual content (not a fallback empty slide)
             if slide.get("dhamma_point") or slide.get("key_concept") not in ("", None):
                 return {
@@ -274,7 +275,9 @@ class ClassroomPipeline:
         running full RAG/LLM pipeline. Returns cached response if similarity ≥ threshold.
         """
         # ── Semantic Cache: First gate ────────────────────────────────────────
-        cached_response, similarity_score = query_cache.get_cached_response(query)
+        cached_response, similarity_score = await to_thread(
+            query_cache.get_cached_response, query
+        )
         if cached_response is not None:
             logger.info(
                 f"[Semantic Cache] Returning cached response (similarity: {similarity_score:.2f}) "
@@ -299,7 +302,7 @@ class ClassroomPipeline:
             )
 
             # ── Cache the response for future semantic matches ─────────────────
-            query_cache.add_to_cache(query, response)
+            await to_thread(query_cache.add_to_cache, query, response)
             logger.debug("[Semantic Cache] Cached response for: '%s'", query[:80])
 
             return response

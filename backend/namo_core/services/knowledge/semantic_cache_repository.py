@@ -5,7 +5,7 @@ import logging
 from typing import Dict, Any, Optional
 import numpy as np
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from namo_core.database.models import SemanticCacheEntry
 
@@ -44,15 +44,17 @@ class SemanticCacheRepository:
                 embedding_json = json.dumps(embedding.tolist())
 
             # Check if entry exists
-            entry = db.query(SemanticCacheEntry).filter(
-                SemanticCacheEntry.query_normalized == query_normalized
-            ).first()
+            entry = (
+                db.query(SemanticCacheEntry)
+                .filter(SemanticCacheEntry.query_normalized == query_normalized)
+                .first()
+            )
 
             if entry:
                 # Update existing entry
                 entry.response_json = response_json
                 entry.embedding_vector = embedding_json
-                entry.last_accessed = datetime.utcnow()
+                entry.last_accessed = datetime.now(timezone.utc)
                 entry.access_count += 1
             else:
                 # Create new entry
@@ -65,7 +67,9 @@ class SemanticCacheRepository:
                 db.add(entry)
 
             db.commit()
-            logger.debug(f"[SemanticCacheDB] Saved cache entry for: '{query_normalized[:80]}'")
+            logger.debug(
+                f"[SemanticCacheDB] Saved cache entry for: '{query_normalized[:80]}'"
+            )
             return entry
 
         except Exception as exc:
@@ -86,9 +90,12 @@ class SemanticCacheRepository:
             List of cache entries with deserialized response and embedding
         """
         try:
-            entries = db.query(SemanticCacheEntry).order_by(
-                SemanticCacheEntry.last_accessed.desc()
-            ).limit(limit).all()
+            entries = (
+                db.query(SemanticCacheEntry)
+                .order_by(SemanticCacheEntry.last_accessed.desc())
+                .limit(limit)
+                .all()
+            )
 
             cache_data = []
             for entry in entries:
@@ -98,18 +105,26 @@ class SemanticCacheRepository:
                     if entry.embedding_vector:
                         embedding = np.array(json.loads(entry.embedding_vector))
 
-                    cache_data.append({
-                        "question": entry.query_normalized,
-                        "response": response,
-                        "embedding": embedding,
-                        "timestamp": entry.created_at.timestamp() if entry.created_at else 0,
-                        "access_count": entry.access_count,
-                    })
+                    cache_data.append(
+                        {
+                            "question": entry.query_normalized,
+                            "response": response,
+                            "embedding": embedding,
+                            "timestamp": entry.created_at.timestamp()
+                            if entry.created_at
+                            else 0,
+                            "access_count": entry.access_count,
+                        }
+                    )
                 except json.JSONDecodeError as jexc:
-                    logger.warning(f"Failed to deserialize cache entry {entry.id}: {jexc}")
+                    logger.warning(
+                        f"Failed to deserialize cache entry {entry.id}: {jexc}"
+                    )
                     continue
 
-            logger.info(f"[SemanticCacheDB] Loaded {len(cache_data)} cache entries from database")
+            logger.info(
+                f"[SemanticCacheDB] Loaded {len(cache_data)} cache entries from database"
+            )
             return cache_data
 
         except Exception as exc:
@@ -121,14 +136,20 @@ class SemanticCacheRepository:
         """Get cache statistics from database."""
         try:
             count = db.query(SemanticCacheEntry).count()
-            most_accessed = db.query(SemanticCacheEntry).order_by(
-                SemanticCacheEntry.access_count.desc()
-            ).first()
+            most_accessed = (
+                db.query(SemanticCacheEntry)
+                .order_by(SemanticCacheEntry.access_count.desc())
+                .first()
+            )
 
             return {
                 "total_entries": count,
-                "most_accessed_query": most_accessed.query_normalized if most_accessed else None,
-                "most_accessed_count": most_accessed.access_count if most_accessed else 0,
+                "most_accessed_query": most_accessed.query_normalized
+                if most_accessed
+                else None,
+                "most_accessed_count": most_accessed.access_count
+                if most_accessed
+                else 0,
             }
         except Exception as exc:
             logger.error(f"Failed to get cache stats: {exc}")
@@ -140,10 +161,12 @@ class SemanticCacheRepository:
         from datetime import timedelta, datetime as dt
 
         try:
-            cutoff_date = dt.utcnow() - timedelta(days=days)
-            deleted = db.query(SemanticCacheEntry).filter(
-                SemanticCacheEntry.last_accessed < cutoff_date
-            ).delete()
+            cutoff_date = dt.now(timezone.utc) - timedelta(days=days)
+            deleted = (
+                db.query(SemanticCacheEntry)
+                .filter(SemanticCacheEntry.last_accessed < cutoff_date)
+                .delete()
+            )
             db.commit()
             logger.info(f"[SemanticCacheDB] Deleted {deleted} old cache entries")
             return deleted

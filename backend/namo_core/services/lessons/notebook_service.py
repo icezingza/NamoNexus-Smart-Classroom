@@ -173,8 +173,8 @@ class NotebookService:
 
     def cleanup_stale_jobs(self, hours: int = 1):
         """ล้างงานที่ค้างอยู่ในสถานะ pending นานเกินไป (Recovery Mechanism)"""
-        from datetime import datetime, timedelta
-        threshold = datetime.utcnow() - timedelta(hours=hours)
+        from datetime import datetime, timedelta, timezone
+        threshold = datetime.now(timezone.utc) - timedelta(hours=hours)
         stale_jobs = self.db.query(NotebookJob).filter(
             NotebookJob.status == "pending",
             NotebookJob.created_at <= threshold

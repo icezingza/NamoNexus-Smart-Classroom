@@ -44,6 +44,7 @@ knowledge/full_tripitaka/
 knowledge/tripitaka_main/*.json
 knowledge/tripitaka_main/chunks/
 knowledge/tripitaka_main/chunks_deep/
+knowledge/lora/
 !knowledge/tripitaka_main/README.md
 .claude/worktrees/
 

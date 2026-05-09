@@ -27,6 +27,7 @@ from typing import Any
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from namo_core.utils.gcs_assets import get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +36,18 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # parents[4]: backend/namo_core/services/knowledge/tripitaka_retriever.py
 #             [0]=knowledge  [1]=services  [2]=namo_core  [3]=backend  [4]=project root
-_BASE_DIR      = Path(__file__).resolve().parents[4]  # → C:\Users\icezi\NamoNexus-Smart-Classroom
+_BASE_DIR = (
+    Path(__file__).resolve().parents[4]
+)  # → C:\Users\icezi\NamoNexus-Smart-Classroom
+_KNOWLEDGE_DIR = _BASE_DIR / "knowledge"
+_BASE_DIR = get_project_root()
 _KNOWLEDGE_DIR = _BASE_DIR / "knowledge"
 _TRIPITAKA_DIR = _KNOWLEDGE_DIR / "tripitaka_main"
-# ใช้ไฟล์ 162,895 vectors (248 MB) — copy มาจาก namo_core_project
-_INDEX_FILE    = _TRIPITAKA_DIR / "tripitaka_index.faiss"
-_META_FILE     = _TRIPITAKA_DIR / "tripitaka_metadata.json"
-_MOCK_FILE     = _KNOWLEDGE_DIR / "mock_tripitaka.json"
-_MODEL_NAME    = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+# ใช้ไฟล์ 168,861 vectors (dim 384) — ฉบับสมบูรณ์ v45 [Confirmed: 2026-05-08]
+_INDEX_FILE = _TRIPITAKA_DIR / "tripitaka_index.faiss"
+_META_FILE = _TRIPITAKA_DIR / "tripitaka_metadata.json"
+_MOCK_FILE = _KNOWLEDGE_DIR / "mock_tripitaka.json"
+_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 # Golden Ratio for Bayesian score weighting (Phase 11.1 invariant)
 _PHI = 1.6180339887
@@ -118,7 +123,7 @@ class TripitakaRetriever:
                 logger.info("Loading Tripitaka FAISS index from %s", _INDEX_FILE)
                 self.index = faiss.read_index(str(_INDEX_FILE))
                 self.has_index = True
-                
+
                 logger.info("Loading embedding model: %s", _MODEL_NAME)
                 self.model = SentenceTransformer(_MODEL_NAME)
             else:
@@ -158,7 +163,9 @@ class TripitakaRetriever:
                 k = min(max(pool_size, top_k * 5), self.index.ntotal)
                 scores, indices = self.index.search(q_vec, k)
 
-                return self._process_results(scores[0], indices[0], top_k, diversity, max_per_source)
+                return self._process_results(
+                    scores[0], indices[0], top_k, diversity, max_per_source
+                )
             except Exception as exc:
                 logger.error("Vector search failed, falling back to keyword: %s", exc)
 
@@ -172,24 +179,28 @@ class TripitakaRetriever:
         for entry in self.metadata:
             text = entry.get("text", "").lower()
             title = entry.get("title", "").lower()
-            
+
             # Simple scoring: how many query words match?
             score = sum(1 for word in query_words if word in text or word in title)
             if score > 0:
-                results.append({
-                    "chunk_id": entry.get("chunk_id", "mock"),
-                    "title": entry.get("title", "Unknown"),
-                    "source_url": entry.get("source_url", ""),
-                    "text": entry.get("text", ""),
-                    "score": float(score),
-                    "source_cat": "fallback"
-                })
-        
+                results.append(
+                    {
+                        "chunk_id": entry.get("chunk_id", "mock"),
+                        "title": entry.get("title", "Unknown"),
+                        "source_url": entry.get("source_url", ""),
+                        "text": entry.get("text", ""),
+                        "score": float(score),
+                        "source_cat": "fallback",
+                    }
+                )
+
         # Sort by score and take top_k
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 
-    def _process_results(self, scores, indices, top_k, diversity, max_per_source) -> list[dict]:
+    def _process_results(
+        self, scores, indices, top_k, diversity, max_per_source
+    ) -> list[dict]:
         source_counts: dict[str, int] = defaultdict(int)
         results: list[dict] = []
         leftover: list[dict] = []
@@ -199,17 +210,17 @@ class TripitakaRetriever:
                 continue
 
             entry = self.metadata[idx]
-            cid   = entry.get("chunk_id", "")
-            url   = entry.get("source_url", "")
-            cat   = _classify_source(cid, url)
+            cid = entry.get("chunk_id", "")
+            url = entry.get("source_url", "")
+            cat = _classify_source(cid, url)
             bscore = round(float(score) * _PHI, 4)
 
             item = {
-                "chunk_id":   cid,
-                "title":      entry.get("title", ""),
+                "chunk_id": cid,
+                "title": entry.get("title", ""),
                 "source_url": url,
-                "text":       entry.get("text", ""),
-                "score":      bscore,
+                "text": entry.get("text", ""),
+                "score": bscore,
                 "source_cat": cat,
             }
 
@@ -226,7 +237,8 @@ class TripitakaRetriever:
         if len(results) < top_k:
             seen_ids = {r["chunk_id"] for r in results}
             for item in leftover:
-                if len(results) >= top_k: break
+                if len(results) >= top_k:
+                    break
                 if item["chunk_id"] not in seen_ids:
                     results.append(item)
                     seen_ids.add(item["chunk_id"])
@@ -237,18 +249,21 @@ class TripitakaRetriever:
         """Return index summary for /status endpoint."""
         if not self.is_ready:
             return {"status": "not_ready", "vectors": 0, "model": _MODEL_NAME}
+
+        status = "ready" if self.has_index else "metadata_only"
         return {
-            "status":     "ready",
-            "vectors":    self.index.ntotal,
-            "dim":        self.index.d,
-            "model":      _MODEL_NAME,
-            "index_file": str(_INDEX_FILE),
+            "status": status,
+            "vectors": self.index.ntotal if self.has_index else 0,
+            "dim": self.index.d if self.has_index else 0,
+            "model": _MODEL_NAME,
+            "index_file": str(_INDEX_FILE) if self.has_index else None,
         }
 
 
 # ---------------------------------------------------------------------------
 # Singleton accessor
 # ---------------------------------------------------------------------------
+
 
 def get_tripitaka_retriever() -> TripitakaRetriever:
     """Return (or create) the TripitakaRetriever singleton."""

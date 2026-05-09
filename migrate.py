@@ -1,4 +1,5 @@
 """Run alembic upgrade head via Cloud SQL Python Connector (no proxy binary needed)."""
+
 import os, sys
 
 # Add backend to path so namo_core is importable
@@ -15,16 +16,23 @@ import sqlalchemy
 from google.cloud.sql.connector import Connector
 from alembic.config import Config
 from alembic import command
+from namo_core.config.settings import get_settings
+
+settings = get_settings()
 
 INSTANCE = "namo-classroom:asia-southeast1:namo-classroom-db"
-DB_USER  = "namo_app"
-DB_PASS  = "zyVrvLVu7FNXpAO7MN_WYw"
-DB_NAME  = "namo_classroom"
+DB_USER = settings.database_user
+DB_PASS = settings.database_password or os.environ.get("NAMO_DATABASE_PASSWORD", "")
+DB_NAME = "namo_classroom"
 
 connector = Connector()
 
+
 def getconn():
-    return connector.connect(INSTANCE, "pg8000", user=DB_USER, password=DB_PASS, db=DB_NAME)
+    return connector.connect(
+        INSTANCE, "pg8000", user=DB_USER, password=DB_PASS, db=DB_NAME
+    )
+
 
 engine = sqlalchemy.create_engine("postgresql+pg8000://", creator=getconn)
 

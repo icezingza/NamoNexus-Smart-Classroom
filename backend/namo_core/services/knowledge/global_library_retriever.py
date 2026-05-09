@@ -14,11 +14,12 @@ from pathlib import Path
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from namo_core.utils.gcs_assets import get_project_root
 
 logger = logging.getLogger(__name__)
 
 _MODEL_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-_BATCH_DIR = Path(__file__).resolve().parents[4] / "knowledge" / "tripitaka_main" / "batch_indexes"
+_BATCH_DIR = get_project_root() / "knowledge" / "tripitaka_main" / "batch_indexes"
 
 
 class GlobalLibraryRetriever:

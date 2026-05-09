@@ -17,11 +17,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _MAX_ATTEMPTS = 10
 _WINDOW_SECONDS = 60
 
+# In-memory fallback (used when Redis is unavailable)
 _attempts: dict[str, list[float]] = defaultdict(list)
 _lock = Lock()
 
 
-def _check_rate_limit(ip: str) -> None:
+def _check_rate_limit_memory(ip: str) -> None:
     now = time.monotonic()
     with _lock:
         _attempts[ip] = [t for t in _attempts[ip] if now - t < _WINDOW_SECONDS]
@@ -33,6 +34,38 @@ def _check_rate_limit(ip: str) -> None:
                 headers={"Retry-After": str(_WINDOW_SECONDS)},
             )
         _attempts[ip].append(now)
+
+
+async def _check_rate_limit_redis(ip: str) -> None:
+    """Redis-backed rate limit: cross-process safe for multi-worker Cloud Run."""
+    from namo_core.utils.redis_factory import make_redis
+    key = f"login_rate:{ip}"
+    try:
+        r = make_redis()
+        count = await r.incr(key)
+        if count == 1:
+            await r.expire(key, _WINDOW_SECONDS)
+        await r.aclose()
+        if count > _MAX_ATTEMPTS:
+            logger.warning("Login rate limit hit for IP %s via Redis (%d attempts)", ip, count)
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many login attempts. Try again in {_WINDOW_SECONDS}s.",
+                headers={"Retry-After": str(_WINDOW_SECONDS)},
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.debug("Redis rate limit unavailable (%s), falling back to in-memory", exc)
+        _check_rate_limit_memory(ip)
+
+
+async def _check_rate_limit(ip: str) -> None:
+    settings = get_settings()
+    if settings.redis_url:
+        await _check_rate_limit_redis(ip)
+    else:
+        _check_rate_limit_memory(ip)
 
 
 class LoginRequest(BaseModel):
@@ -48,7 +81,7 @@ class TokenResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: LoginRequest, request: Request) -> TokenResponse:
     client_ip = request.client.host if request.client else "unknown"
-    _check_rate_limit(client_ip)
+    await _check_rate_limit(client_ip)
 
     settings = get_settings()
     valid_username = settings.admin_username

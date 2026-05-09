@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Database Configuration (Phase 12 / Phase 3 Persistent Layer)
     database_url: str = "sqlite:///./namo_classroom.db"
+    database_user: str = "namo_app"
     database_password: str | None = None
     redis_url: str | None = None
     redis_password: str | None = None

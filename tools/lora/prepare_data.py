@@ -17,6 +17,7 @@ Each output line is:
 Run:
   python tools/lora/prepare_data.py [--val-split 0.1] [--min-chars 200]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,6 +32,9 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _GLOBAL_LIB = _PROJECT_ROOT / "knowledge" / "global_library"
+_TRIPITAKA_META = (
+    _PROJECT_ROOT / "knowledge" / "tripitaka_main" / "tripitaka_metadata.json"
+)
 _CURATED = _PROJECT_ROOT / "knowledge" / "tripitaka_v25_curated.json"
 _MOCK_QA = _PROJECT_ROOT / "knowledge" / "classroom_mock_qa.json"
 _OUT_DIR = _PROJECT_ROOT / "knowledge" / "lora"
@@ -39,6 +43,7 @@ _OUT_DIR = _PROJECT_ROOT / "knowledge" / "lora"
 # ---------------------------------------------------------------------------
 # Prompt templates (Llama-3 / ChatML compatible)
 # ---------------------------------------------------------------------------
+
 
 def _alpaca_prompt(system: str, instruction: str, output: str) -> str:
     """Format one training example in Alpaca / Llama-3 Instruct style."""
@@ -66,12 +71,60 @@ _SUTTA_TEMPLATES: list[tuple[str, str]] = [
         "{content}",
     ),
     (
-        "สรุปสาระสำคัญของ {title} ในภาษาที่เข้าใจง่าย",
+        "สรุปสาระสำคัญของ {title} ในภาษาที่เด็กๆ เข้าใจง่าย",
         # Ask for a simplified summary — model learns from raw content as ground truth
         "{content}",
     ),
     (
         "ข้อความจากพระไตรปิฎกเรื่อง {title} สอนอะไรเราได้บ้าง?",
+        "{content}",
+    ),
+    (
+        "หัวใจสำคัญของบทสอนเรื่อง {title} คืออะไรครับพี่นะโม",
+        "{content}",
+    ),
+    (
+        "เราจะนำคำสอนใน {title} ไปปรับใช้ในชีวิตประจำวันได้อย่างไรบ้าง",
+        "{content}",
+    ),
+    (
+        "ถ้าต้องอธิบายเรื่อง {title} ให้เพื่อนฟัง พี่นะโมจะสรุปว่ายังไง",
+        "{content}",
+    ),
+    (
+        "ช่วยยกตัวอย่างการปฏิบัติที่สอดคล้องกับเนื้อหาใน {title}",
+        "{content}",
+    ),
+    (
+        "ทำไมการศึกษาเรื่อง {title} ถึงมีความสำคัญต่อพุทธศาสนิกชน",
+        "{content}",
+    ),
+    (
+        "หลักธรรมใดที่โดดเด่นที่สุดใน {title}",
+        "{content}",
+    ),
+    (
+        "ช่วยเล่าสรุปเรื่อง {title} ในรูปแบบกัลยาณมิตรผู้ใจดี",
+        "{content}",
+    ),
+    (
+        "ประโยชน์ที่ได้รับจากการทำความเข้าใจ {title} มีอะไรบ้าง",
+        "{content}",
+    ),
+    (
+        "พี่นะโมช่วยวิเคราะห์บทเรียนจาก {title} ให้ฟังหน่อยครับ",
+        "{content}",
+    ),
+    (
+        "จุดประสงค์หลักที่พระพุทธองค์ทรงสอนเรื่อง {title} คืออะไร",
+        "{content}",
+    ),
+    (
+        "สรุปเนื้อความจากพระไตรปิฎกส่วนของ {title} เป็นข้อๆ ให้เข้าใจง่าย",
+        "{content}",
+    ),
+    (
+        "คำสำคัญหรือคีย์เวิร์ดที่น่าสนใจใน {title} มีอะไรบ้าง",
         "{content}",
     ),
 ]
@@ -81,20 +134,26 @@ _SUTTA_TEMPLATES: list[tuple[str, str]] = [
 # Source extractors
 # ---------------------------------------------------------------------------
 
+
 def _yield_global_library(min_chars: int) -> Iterator[dict]:
-    """Yield training examples from all 23 clean book JSON files."""
+    """Yield training examples from 23 clean book JSON files (books 23-45)."""
     book_files = sorted(_GLOBAL_LIB.glob("book_*_clean.json"))
     if not book_files:
         logger.warning("No book files found in %s", _GLOBAL_LIB)
         return
 
     for book_path in book_files:
-        with book_path.open(encoding="utf-8") as f:
-            items: list[dict] = json.load(f)
+        try:
+            with book_path.open(encoding="utf-8") as f:
+                items: list[dict] = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.error("Failed to load %s: %s", book_path.name, exc)
+            continue
 
         for item in items:
             title: str = item.get("title", "").strip()
-            content: str = item.get("content", "").strip()
+            # ใช้ 'text' หรือ 'content' ก็ได้ตามโครงสร้างไฟล์
+            content: str = (item.get("content") or item.get("text", "")).strip()
 
             if not title or len(content) < min_chars:
                 continue
@@ -107,6 +166,75 @@ def _yield_global_library(min_chars: int) -> Iterator[dict]:
                     "text": _alpaca_prompt(_SYSTEM, instruction, output),
                     "_source": book_path.name,
                 }
+
+
+def _yield_tripitaka_sample(
+    min_chars: int,
+    sample_size: int = 2000,
+    seed: int = 42,
+) -> Iterator[dict]:
+    """Yield training examples from tripitaka_metadata.json (stratified sample).
+
+    Samples `sample_size` chunks evenly across all unique sources to avoid
+    over-representing any single book.  Each chunk gets all 15 _SUTTA_TEMPLATES,
+    producing up to sample_size × 15 = 30,000 extra examples.
+    """
+    if not _TRIPITAKA_META.exists():
+        logger.warning("tripitaka_metadata.json not found: %s", _TRIPITAKA_META)
+        return
+
+    logger.info("Loading tripitaka_metadata.json (168k records — may take ~10s)...")
+    with _TRIPITAKA_META.open(encoding="utf-8") as f:
+        all_chunks: list[dict] = json.load(f)
+
+    # Filter: must have text >= min_chars
+    valid = [
+        c for c in all_chunks
+        if len((c.get("text") or c.get("content") or "").strip()) >= min_chars
+        and c.get("title", "").strip()
+    ]
+    logger.info("  → %d valid chunks after min_chars=%d filter", len(valid), min_chars)
+
+    # Stratified sample: group by source_url domain or chunk_id prefix
+    # Fallback: random sample if grouping is unavailable
+    rng = random.Random(seed)
+    if len(valid) <= sample_size:
+        sampled = valid
+    else:
+        # Group by first 3 chars of chunk_id as a cheap source proxy
+        from collections import defaultdict
+        groups: dict[str, list[dict]] = defaultdict(list)
+        for chunk in valid:
+            key = str(chunk.get("chunk_id", ""))[:4]
+            groups[key].append(chunk)
+
+        sampled: list[dict] = []
+        per_group = max(1, sample_size // len(groups))
+        for grp in groups.values():
+            rng.shuffle(grp)
+            sampled.extend(grp[:per_group])
+
+        # Top up to exactly sample_size if needed
+        rng.shuffle(sampled)
+        sampled = sampled[:sample_size]
+
+    logger.info("  → %d chunks sampled × 15 templates = %d examples",
+                len(sampled), len(sampled) * len(_SUTTA_TEMPLATES))
+
+    for chunk in sampled:
+        title: str = chunk.get("title", "").strip()
+        content: str = (chunk.get("text") or chunk.get("content") or "").strip()
+        if not title or len(content) < min_chars:
+            continue
+        for instr_tpl, out_tpl in _SUTTA_TEMPLATES:
+            yield {
+                "text": _alpaca_prompt(
+                    _SYSTEM,
+                    instr_tpl.format(title=title, content=content),
+                    out_tpl.format(title=title, content=content),
+                ),
+                "_source": "tripitaka_metadata",
+            }
 
 
 def _yield_curated() -> Iterator[dict]:
@@ -156,6 +284,7 @@ def _yield_mock_qa() -> Iterator[dict]:
 # Main pipeline
 # ---------------------------------------------------------------------------
 
+
 def build_dataset(val_split: float = 0.1, min_chars: int = 200, seed: int = 42) -> None:
     """Collect, shuffle, split, and write training/validation JSONL files."""
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -167,14 +296,19 @@ def build_dataset(val_split: float = 0.1, min_chars: int = 200, seed: int = 42) 
     logger.info("  → %d examples from global_library", len(lib_examples))
     all_examples.extend(lib_examples)
 
+    logger.info("Loading tripitaka_metadata sample (2000 chunks x 15 templates)...")
+    tri_examples = list(_yield_tripitaka_sample(min_chars, sample_size=2000, seed=seed))
+    logger.info("  -> %d examples from tripitaka_metadata", len(tri_examples))
+    all_examples.extend(tri_examples)
+
     logger.info("Loading curated golden sentences...")
     curated = list(_yield_curated())
-    logger.info("  → %d examples from curated", len(curated))
+    logger.info("  -> %d examples from curated", len(curated))
     all_examples.extend(curated)
 
     logger.info("Loading mock QA pairs...")
     qa = list(_yield_mock_qa())
-    logger.info("  → %d examples from mock QA", len(qa))
+    logger.info("  -> %d examples from mock QA", len(qa))
     all_examples.extend(qa)
 
     if not all_examples:
@@ -222,9 +356,9 @@ def build_dataset(val_split: float = 0.1, min_chars: int = 200, seed: int = 42) 
     stats_path.write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
     logger.info("Dataset written:")
-    logger.info("  train → %s (%d examples)", train_path, len(train_set))
-    logger.info("  val   → %s (%d examples)", val_path, len(val_set))
-    logger.info("  stats → %s", stats_path)
+    logger.info("  train -> %s (%d examples)", train_path, len(train_set))
+    logger.info("  val   -> %s (%d examples)", val_path, len(val_set))
+    logger.info("  stats -> %s", stats_path)
     logger.info("Source breakdown: %s", source_counts)
 
 

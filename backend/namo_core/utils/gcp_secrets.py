@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 _PLACEHOLDER = "MUST_BE_SET_IN_ENV"
 
 # Secrets that are hard-required for the API to function correctly.
-_REQUIRED_SECRETS = ("jwt_secret_key", "admin_password", "system_secret")
+_REQUIRED_SECRETS = ("jwt_secret_key", "admin_password")
 
 
 async def load_secret_from_gcp(secret_name: str, project_id: str) -> str | None:
@@ -27,12 +27,14 @@ async def load_secret_from_gcp(secret_name: str, project_id: str) -> str | None:
         client = secretmanager.SecretManagerServiceClient()
         name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
         response = client.access_secret_version(request={"name": name})
-        return response.payload.data.decode("UTF-8")
+        return response.payload.data.decode("UTF-8").strip()
 
     try:
         return await asyncio.to_thread(_fetch)
     except GoogleAPIError as exc:
-        logger.warning("GCP secret '%s' not found or inaccessible: %s", secret_name, exc)
+        logger.warning(
+            "GCP secret '%s' not found or inaccessible: %s", secret_name, exc
+        )
         return None
     except Exception as exc:
         logger.error("Unexpected error loading GCP secret '%s': %s", secret_name, exc)
@@ -66,7 +68,6 @@ async def load_all_secrets() -> None:
     val = await load_secret_from_gcp("namo-jwt-secret", project_id)
     if val:
         settings.jwt_secret_key = val
-        settings.system_secret = val  # keep in sync
 
     # --- Admin password ---
     val = await load_secret_from_gcp("namo-admin-password", project_id)
@@ -83,8 +84,9 @@ async def load_all_secrets() -> None:
     if db_pass:
         settings.database_password = db_pass
         db_host = os.environ.get("NAMO_DB_HOST", "127.0.0.1")
+        db_user = os.environ.get("NAMO_DB_USER", settings.database_user)
         settings.database_url = (
-            f"postgresql://postgres:{db_pass}@{db_host}:5432/namo_classroom"
+            f"postgresql://{db_user}:{db_pass}@{db_host}:5432/namo_classroom"
         )
 
     # --- Redis password (Phase 3 cloud path) ---
@@ -105,7 +107,6 @@ def _validate_secrets(settings) -> None:
 
     checks = {
         "jwt_secret_key": settings.jwt_secret_key,
-        "system_secret": settings.system_secret,
         "admin_password": settings.admin_password,
     }
     for name, value in checks.items():

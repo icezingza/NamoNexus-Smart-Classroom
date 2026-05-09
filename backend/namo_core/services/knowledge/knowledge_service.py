@@ -3,7 +3,10 @@
 import logging
 from typing import Dict, Any, Optional
 
-from namo_core.services.knowledge.global_library_retriever import GlobalLibraryRetriever, get_global_library_retriever
+from namo_core.services.knowledge.global_library_retriever import (
+    GlobalLibraryRetriever,
+    get_global_library_retriever,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +86,23 @@ class KnowledgeService:
                 from namo_core.services.knowledge.tripitaka_retriever import (
                     get_tripitaka_retriever,
                 )
+
                 self._tripitaka_retriever = get_tripitaka_retriever()
             except ImportError:
                 logger.warning("Tripitaka retriever not available")
                 self._tripitaka_retriever = None
         return self._tripitaka_retriever
+
+    @property
+    def catalog_size(self) -> int:
+        """Return the total number of vectors in the primary index."""
+        retriever = self._get_tripitaka_retriever()
+        return retriever.index.ntotal if (retriever and retriever.has_index) else 0
+
+    def index_summary(self) -> dict:
+        """Return descriptive metadata about the RAG index."""
+        retriever = self._get_tripitaka_retriever()
+        return retriever.describe() if retriever else {"status": "unavailable"}
 
     def search(self, query: str, top_k: int = 3) -> list[Dict[str, Any]]:
         """
@@ -130,29 +145,32 @@ class KnowledgeService:
             return []
 
         import asyncio
+
         tasks = []
+        sources = []
+
         retriever = self._get_tripitaka_retriever()
         if retriever:
+            sources.append("tripitaka")
             tasks.append(asyncio.to_thread(retriever.search, query, top_k))
-        else:
-            tasks.append(asyncio.sleep(0, result=[])) # Dummy task
 
+        sources.append("global_library")
         tasks.append(asyncio.to_thread(self.global_lib.search, query, top_k))
-        
-        results_nested = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
+        results_list = await asyncio.gather(*tasks, return_exceptions=True)
+
         flattened = []
-        for i, res in enumerate(results_nested):
+        for source, res in zip(sources, results_list):
             if isinstance(res, list):
-                if i == 1: # Global Library results
+                if source == "global_library":
                     for hit in res:
                         hit["source"] = "global_library"
                 flattened.extend(res)
             elif isinstance(res, Exception):
                 logger.error(f"Search source failed: {res}")
-        
+
         flattened.sort(key=lambda x: x.get("score", 0.0), reverse=True)
-        return flattened[:top_k * 2]
+        return flattened[: top_k * 2]
 
     def build_context(self, query: str, top_k: int = 3) -> str:
         """

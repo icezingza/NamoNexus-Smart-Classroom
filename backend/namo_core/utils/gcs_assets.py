@@ -35,7 +35,26 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+def get_project_root() -> Path:
+    """Return the runtime root that owns the knowledge asset directory."""
+    package_root = Path(__file__).resolve().parents[2]
+    env_root = os.getenv("NAMO_PROJECT_ROOT")
+    candidates = [
+        Path(env_root) if env_root else None,
+        package_root.parent,
+        package_root,
+        Path.cwd(),
+    ]
+    for candidate in candidates:
+        if candidate is not None and (candidate / "knowledge" / "tripitaka_main").exists():
+            return candidate
+    for candidate in candidates:
+        if candidate is not None and (candidate / "namo_core").exists():
+            return candidate
+    return package_root.parent
+
+
+_PROJECT_ROOT = get_project_root()
 _KNOWLEDGE_DIR = _PROJECT_ROOT / "knowledge"
 _TRIPITAKA_MAIN = _KNOWLEDGE_DIR / "tripitaka_main"
 _BATCH_DIR = _TRIPITAKA_MAIN / "batch_indexes"
@@ -130,7 +149,7 @@ def _download_blob(bucket_name: str, blob_name: str, dest_path: Path) -> None:
         )
 
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = dest_path.with_suffix(dest_path.suffix + ".tmp")
+    tmp_path = dest_path.with_suffix(f"{dest_path.suffix}.{os.getpid()}.tmp")
 
     logger.info("Downloading gs://%s/%s → %s", bucket_name, blob_name, dest_path)
     blob.download_to_filename(str(tmp_path))
@@ -243,13 +262,6 @@ async def ensure_assets_for_startup() -> None:
 
     if are_critical_assets_present():
         logger.debug("[GCS] Critical FAISS assets present — no download needed")
-        return
-
-    if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-        logger.warning(
-            "[GCS] Critical FAISS assets missing and GCP credentials not set. "
-            "RAG pipeline will be unavailable until assets are restored."
-        )
         return
 
     logger.info("[GCS] Critical FAISS assets missing — initiating download from GCS...")
