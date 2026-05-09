@@ -63,16 +63,16 @@ _BATCH_DIR = _TRIPITAKA_MAIN / "batch_indexes"
 # GCS configuration
 # ---------------------------------------------------------------------------
 _GCS_BUCKET_MODELS = "namo-classroom-models"
-_GCS_PREFIX_FAISS = "faiss"
+_GCS_PREFIX_MODELS = "models"
 
 # Required critical assets (must exist for RAG to work)
 _CRITICAL_ASSETS: list[tuple[str, Path]] = [
     (
-        f"{_GCS_PREFIX_FAISS}/tripitaka_main/tripitaka_index.faiss",
+        f"{_GCS_PREFIX_MODELS}/tripitaka_index.faiss",
         _TRIPITAKA_MAIN / "tripitaka_index.faiss",
     ),
     (
-        f"{_GCS_PREFIX_FAISS}/tripitaka_main/tripitaka_metadata.json",
+        f"{_GCS_PREFIX_MODELS}/tripitaka_metadata.json",
         _TRIPITAKA_MAIN / "tripitaka_metadata.json",
     ),
 ]
@@ -202,14 +202,16 @@ async def ensure_assets_async(force: bool = False) -> dict[str, int]:
     """
     stats = {"downloaded": 0, "already_present": 0, "failed": 0}
 
-    # Build work list
+    # Build work list. Batch indexes are optional and currently not present in
+    # the production bucket; keep startup focused on the two critical RAG files.
     work: list[tuple[str, Path]] = list(_CRITICAL_ASSETS)
-    for book_num in _BATCH_BOOK_RANGE:
-        for suffix in [".index", "_metadata.json"]:
-            fname = f"book_{book_num}_clean{suffix}"
-            gcs_path = f"{_GCS_PREFIX_FAISS}/tripitaka_main/batch_indexes/{fname}"
-            local_path = _BATCH_DIR / fname
-            work.append((gcs_path, local_path))
+    if os.getenv("NAMO_DOWNLOAD_BATCH_INDEXES", "").lower() in {"1", "true", "yes"}:
+        for book_num in _BATCH_BOOK_RANGE:
+            for suffix in [".index", "_metadata.json"]:
+                fname = f"book_{book_num}_clean{suffix}"
+                gcs_path = f"{_GCS_PREFIX_MODELS}/batch_indexes/{fname}"
+                local_path = _BATCH_DIR / fname
+                work.append((gcs_path, local_path))
 
     # Concurrent downloads — semaphore limits parallel GCS connections
     semaphore = asyncio.Semaphore(4)
