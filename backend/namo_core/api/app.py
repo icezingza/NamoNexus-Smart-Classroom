@@ -114,9 +114,10 @@ async def prewarm_retrievers() -> None:
             asyncio.to_thread(get_global_library_retriever),
         )
         elapsed_ms = int((asyncio.get_event_loop().time() - t0) * 1000)
+        tri_index = getattr(tri, "index", None)
         _logger.info(
             "[PreWarm] Tripitaka=%d vectors, GlobalLib=%d book indexes, elapsed=%dms",
-            tri.index.ntotal if tri and hasattr(tri, "index") else 0,
+            tri_index.ntotal if tri_index is not None else 0,
             len(gl.books) if gl else 0,
             elapsed_ms,
         )
