@@ -180,7 +180,8 @@ alembic downgrade -1      # roll back one step
 | P21 | Cloud Run Deploy | ✅ **Complete** — Service live at api.namonexus.com [cite: 2026-05-08] |
 | P22 | Secret Rotation & Deep Async | ✅ **Complete** — DB/GCP Secrets rotated, connections verified, Pipeline is 100% Async [cite: 2026-05-09] |
 | P23 | Books 11-22 Integration (Phase 1-4) | ✅ **Complete** — 1,226 chunks standardized; Phase 3b vectorized 1,186 chunks → 170,047 total vectors; FAISS ↔ Metadata aligned [cite: 2026-05-11] |
-| P24 | Books 23-45 Vectorization | 🔲 Pending — pipeline ready (`batch_vectorizer.py`); source: Buddhadust/SuttaCentral; estimated +~180,000 vectors |
+| P24 | GCS Upload + Cloud Run Redeploy | ✅ **Complete** — FAISS (249MB) + metadata (284MB) uploaded to GCS; revision `namo-backend-00011-lkl` live; `/health` OK [cite: 2026-05-11] |
+| P25 | Books 23-45 Vectorization | 🔲 Pending — pipeline ready (`batch_vectorizer.py`); source: Buddhadust/SuttaCentral; estimated +~113,814 vectors → final 283,861 |
 
 ## 12. Architectural Rules (กฎเหล็ก v6.0.0)
 - Port Standard: `8000` (Backend) / `5173` (Frontend Local)
@@ -200,22 +201,25 @@ alembic downgrade -1      # roll back one step
 - FAISS: 168,861 → **170,047 vectors** ✅ aligned with metadata
 - Git commit + push: ✅ Done (commit `7baf4ef` + cleanup `382935b`, 2026-05-11)
 
-### 🔴 P24 — Upload updated FAISS to GCS + Redeploy Cloud Run (Next Priority)
+### ✅ P24 — GCS Upload + Cloud Run Redeploy (Complete)
+
+- FAISS (249 MB) + metadata (284 MB) → `gs://namo-classroom-models/tripitaka_main/`
+- Cloud Run revision `namo-backend-00011-lkl` live — `/health` OK
+- `verify_cloud_assets.py` — ALL CHECKS PASSED ✅ [cite: 2026-05-11]
+
+### 🔴 P25 — Books 23-45 Vectorization (Next Priority)
 
 ```bash
-# 1. Upload updated FAISS index to GCS
-gsutil cp knowledge/tripitaka_main/tripitaka_index.faiss \
-  gs://namo-classroom-models/tripitaka_main/tripitaka_index.faiss
+# Fetch Books 23-45 (Buddhadust fallback — same pipeline as Books 11-22)
+python scripts/fetch_books_11_22_buddhadust.py --books 23-45
 
-gsutil cp knowledge/tripitaka_main/tripitaka_metadata.json \
-  gs://namo-classroom-models/tripitaka_main/tripitaka_metadata.json
+# Standardize to chunk format
+python scripts/standardize_books_11_22_buddhadust.py --input books_23_45_raw/ --output chunk_books_23_45.json
 
-# 2. Redeploy Cloud Run to pull new FAISS on startup
-gcloud run deploy namo-backend --region=asia-southeast1 --image=gcr.io/namo-classroom/namo-backend
-
-# 3. Verify end-to-end
-python -X utf8 scripts/verify_cloud_assets.py
+# Vectorize + append to main FAISS
+python scripts/vectorize_books_11_22.py  # ปรับ CHUNK_FILE → chunk_books_23_45.json
 ```
+- Estimated: +~113,814 vectors → final **283,861 total** (Books 1-45 ครบ)
 
 ---
 

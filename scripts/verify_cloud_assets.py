@@ -4,7 +4,7 @@ verify_cloud_assets.py — NamoNexus Cloud & RAG Pipeline Verification
 Checks end-to-end readiness before deploying to production:
 
   [1] Local FAISS assets         — tripitaka_index.faiss + 23 batch indexes
-  [2] Vector counts              — 168,861 Tripitaka vectors, 23 book indexes
+  [2] Vector counts              — 170,047 Tripitaka vectors (Books 1-22), 23 book indexes
   [3] RAG search quality         — both Tripitaka + GlobalLibrary return results
   [4] Pre-warm timing            — both retrievers load within SLA (< 30s)
   [5] GCS bucket accessibility   — namo-classroom-models / namonexus-wisdom-storage
@@ -143,7 +143,7 @@ def check_vector_counts() -> None:
 
         index = faiss.read_index(str(index_path))
         ntotal = index.ntotal
-        expected = 168_861
+        expected = 170_047  # Books 1-22 (Phase 3b complete, 2026-05-11)
         report.add(
             f"Tripitaka vectors = {ntotal:,}",
             ntotal >= expected * 0.99,  # allow 1% drift from rebuilds
