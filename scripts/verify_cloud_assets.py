@@ -143,7 +143,7 @@ def check_vector_counts() -> None:
 
         index = faiss.read_index(str(index_path))
         ntotal = index.ntotal
-        expected = 170_047  # Books 1-22 (Phase 3b complete, 2026-05-11)
+        expected = 171_357  # Books 1-45 complete (P25, 2026-05-11)
         report.add(
             f"Tripitaka vectors = {ntotal:,}",
             ntotal >= expected * 0.99,  # allow 1% drift from rebuilds

@@ -3,9 +3,9 @@
 ## 1. Project Mental Model
 "Infrastructure แห่งปัญญา" ที่เปลี่ยนพระไตรปิฎกให้กลายเป็นระบบห้องเรียนธรรมะอัจฉริยะ (Smart Dhamma Classroom) ผ่านสถาปัตยกรรม Hybrid (Local Edge + Public Cloud)
 
-- Corpus ปัจจุบัน: **170,047 vectors** (dim 384) — Books 1-10 complete (168,861) + Books 11-22 vectorized (+1,186 chunks Phase 3b) [cite: 2026-05-11]
-- Dual-source RAG: **Tripitaka** (primary, 170,047 chunks) + **Global Library** (secondary, 23 FAISS book indexes) [cite: 2026-05-04]
-- Books structure: Books 1-22 vectorized ✅ | Books 23-45 standardized (pending Phase 4 vectorization) [cite: 2026-05-11]
+- Corpus ปัจจุบัน: **171,357 vectors** (dim 384) — Books 1-10 (168,861) + Books 11-22 (+1,186) + Books 23-45 (+1,310) [cite: 2026-05-11]
+- Dual-source RAG: **Tripitaka** (primary, 171,357 chunks) + **Global Library** (secondary, 23 FAISS book indexes) [cite: 2026-05-04]
+- Books structure: **Books 1-45 vectorized ✅ COMPLETE** — all 45 books in FAISS [cite: 2026-05-11]
 - Both RAG singletons pre-warmed at startup → first teacher query **< 200ms** [cite: 2026-05-04]
 
 ## 2. Roles & Identity
@@ -18,7 +18,7 @@
 ### Backend (Lenovo Workstation / Edge Server)
 - FastAPI (Async 100%): `asyncio.to_thread` + `aiofiles` throughout [cite: 2026-04-22]
 - **Dual-source RAG**: `KnowledgeService.search()` queries Tripitaka retriever (primary) then GlobalLibraryRetriever (secondary, 23 books) — both singletons pre-warmed via `asyncio.gather` in startup event [cite: 2026-05-04]
-- FAISS index: `knowledge/tripitaka_main/tripitaka_index.faiss` (170,047 vectors — Books 1-22 vectorized via Phase 3b); batch indexes: `knowledge/tripitaka_main/batch_indexes/` (23 books) [cite: 2026-05-11]
+- FAISS index: `knowledge/tripitaka_main/tripitaka_index.faiss` (171,357 vectors — Books 1-45 ครบ); batch indexes: `knowledge/tripitaka_main/batch_indexes/` (23 books) [cite: 2026-05-11]
 - Persistent Layer: SQLite default + Redis PubSub + **PostgreSQL/Cloud SQL via Alembic** [cite: 2026-05-08]
 - Auth: JWT Bearer (HS256), bcrypt admin password, rate-limited login (10 req/60s), HSTS in production [cite: 2026-05-08]
 
@@ -109,11 +109,10 @@ powershell -ExecutionPolicy Bypass -File scripts\Install-Desktop-Shortcut.ps1
 - **Cloud Verification**: `scripts/verify_cloud_assets.py` (end-to-end RAG + GCS + secrets check) [cite: 2026-05-08]
 
 ### Latest Audit Snapshot (`2026-05-11`)
-- Total chunk records: `170,047` (Books 1-10: 168,861 + Books 11-22: 1,186 via Phase 3b vectorization)
-- Average chunk length: `619.25` characters
-- Empty chunks: `0` | HTML leak chunks: `0`
-- Short chunks (< 50 chars): `0` (quality filter passed all 1,186 Books 11-22 chunks)
-- Source integration: Tripitaka (primary) + Buddhadust fallback (Books 11-22) ✅ FAISS ↔ Metadata aligned
+- Total chunk records: `171,357` (Books 1-10: 168,861 + Books 11-22: 1,186 + Books 23-45: 1,310)
+- Empty chunks: `0` | Quality filter: 0 dropped
+- Source integration: Tripitaka primary (Thai MCU) + Buddhadust fallback (Books 11-22) ✅ FAISS ↔ Metadata aligned
+- **Books 1-45 COMPLETE** — all 45 books vectorized and live on Cloud Run
 
 ## 8. Namo-LoRA (P16)
 - **Location**: `tools/lora/` [cite: 2026-05-08]
@@ -181,7 +180,7 @@ alembic downgrade -1      # roll back one step
 | P22 | Secret Rotation & Deep Async | ✅ **Complete** — DB/GCP Secrets rotated, connections verified, Pipeline is 100% Async [cite: 2026-05-09] |
 | P23 | Books 11-22 Integration (Phase 1-4) | ✅ **Complete** — 1,226 chunks standardized; Phase 3b vectorized 1,186 chunks → 170,047 total vectors; FAISS ↔ Metadata aligned [cite: 2026-05-11] |
 | P24 | GCS Upload + Cloud Run Redeploy | ✅ **Complete** — FAISS (249MB) + metadata (284MB) uploaded to GCS; revision `namo-backend-00011-lkl` live; `/health` OK [cite: 2026-05-11] |
-| P25 | Books 23-45 Vectorization | 🔲 Pending — pipeline ready (`batch_vectorizer.py`); source: Buddhadust/SuttaCentral; estimated +~113,814 vectors → final 283,861 |
+| P25 | Books 23-45 Vectorization | ✅ **Complete** — 1,310 chunks (MCU Thai source) vectorized; FAISS 171,357 vectors; Cloud Run revision `00012-2gn` live [cite: 2026-05-11] |
 
 ## 12. Architectural Rules (กฎเหล็ก v6.0.0)
 - Port Standard: `8000` (Backend) / `5173` (Frontend Local)
@@ -207,19 +206,12 @@ alembic downgrade -1      # roll back one step
 - Cloud Run revision `namo-backend-00011-lkl` live — `/health` OK
 - `verify_cloud_assets.py` — ALL CHECKS PASSED ✅ [cite: 2026-05-11]
 
-### 🔴 P25 — Books 23-45 Vectorization (Next Priority)
+### ✅ P25 — Books 23-45 Vectorization (Complete)
 
-```bash
-# Fetch Books 23-45 (Buddhadust fallback — same pipeline as Books 11-22)
-python scripts/fetch_books_11_22_buddhadust.py --books 23-45
-
-# Standardize to chunk format
-python scripts/standardize_books_11_22_buddhadust.py --input books_23_45_raw/ --output chunk_books_23_45.json
-
-# Vectorize + append to main FAISS
-python scripts/vectorize_books_11_22.py  # ปรับ CHUNK_FILE → chunk_books_23_45.json
-```
-- Estimated: +~113,814 vectors → final **283,861 total** (Books 1-45 ครบ)
+- Source: `tripitaka_v45_metadata.json` (Thai MCU, 1,310 chunks Books 23-45)
+- Script: `scripts/vectorize_books_23_45.py` — 76.9s local
+- FAISS: 170,047 → **171,357 vectors** ✅ aligned
+- GCS upload + Cloud Run revision `namo-backend-00012-2gn` live ✅ [cite: 2026-05-11]
 
 ---
 
