@@ -1,0 +1,17 @@
+[Unit]
+Description=Namo Core Smart Classroom Service
+After=network.target redis-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=icezi
+WorkingDirectory=/mnt/c/Users/icezi/NamoNexus-Smart-Classroom
+# เรียกใช้สคริปต์ที่คุณมีอยู่แล้ว
+ExecStart=/bin/bash /mnt/c/Users/icezi/NamoNexus-Smart-Classroom/scripts/namo_start_all.sh
+ExecStop=/bin/bash /mnt/c/Users/icezi/NamoNexus-Smart-Classroom/scripts/namo_stop_all.sh
+StandardOutput=append:/mnt/c/Users/icezi/NamoNexus-Smart-Classroom/logs/systemd.log
+StandardError=append:/mnt/c/Users/icezi/NamoNexus-Smart-Classroom/logs/systemd_error.log
+
+[Install]
+WantedBy=multi-user.target

@@ -54,3 +54,4 @@ backend/*_result.txt
 backend/verify_changes.py
 backend/startup_debug.*
 backend/startup_now.*
+knowledge/global_library/book_01_refined.json

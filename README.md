@@ -99,7 +99,7 @@ Google Cloud Platform (asia-southeast1)
 
 | Component | Technology | Detail |
 |---|---|---|
-| **LLM** | Groq `llama-3.3-70b-versatile` | OpenAI-compatible API |
+| **LLM** | DeepSeek V3 / R1 | DeepSeek API (OpenAI-compatible) |
 | **STT** | FasterWhisper `base` | Thai language optimized |
 | **TTS** | Edge TTS `th-TH-PremwadeeNeural` | Microsoft Neural Voice |
 | **RAG** | FAISS IndexFlatIP (cosine) | 168,861 vectors, dim=384 |

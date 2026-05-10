@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # 1. ฐานข้อมูล Redis
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 2. Namo Core Backend
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NAMO_API_HOST=0.0.0.0
+    depends_on:
+      - redis
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 10s
+      retries: 5
+    restart: always
+
+  # 3. MCP Server (Central Hub)
+  mcp-hub:
+    build:
+      context: ../mcp-server # ชี้ไปยังโฟลเดอร์ mcp-server ที่อยู่ข้างๆ กัน
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+      - NAMO_API_BASE=http://backend:8000
+      - PROJECT_ROOT=/app/shared # กรณีต้องการให้อ่านไฟล์ข้ามกัน
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - .:/app/shared # Mount project หลักเข้าไปเพื่อให้ MCP อ่าน log ได้
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s -I http://localhost:3000/sse | grep -q '200 OK' || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always

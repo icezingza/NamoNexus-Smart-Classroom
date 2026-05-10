@@ -27,7 +27,7 @@ echo ""
 # ---------------------------------------------------------------------------
 # Step 1: Python version check
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[1/6] Checking Python version...${NC}"
+echo -e "${YELLOW}[1/7] Checking Python version...${NC}"
 if ! command -v python3 &>/dev/null; then
     echo -e "${RED}  ERROR: python3 not found.${NC}"
     echo "  Install with: sudo apt-get install python3 python3-pip python3-venv"
@@ -39,11 +39,16 @@ echo -e "${GREEN}  Found: $PYTHON_VER${NC}"
 # ---------------------------------------------------------------------------
 # Step 2: Create virtual environment
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[2/6] Creating Python virtual environment...${NC}"
+echo -e "${YELLOW}[2/7] Creating Python virtual environment...${NC}"
 VENV_PATH="$ROOT/.venv"
-if [ -d "$VENV_PATH" ]; then
+if [ -f "$VENV_PATH/bin/python3" ]; then
     echo "  .venv already exists — skipping creation."
 else
+    echo "  Cleaning up old/broken environment..."
+    rm -rf "$VENV_PATH" || { 
+        echo -e "${RED}  ERROR: Cannot remove .venv. It might be locked by Windows.${NC}"
+        echo "  Try running: powershell.exe -Command \"Remove-Item -Recurse -Force .venv\""
+        exit 1; }
     python3 -m venv "$VENV_PATH"
     echo -e "${GREEN}  Created: $VENV_PATH${NC}"
 fi
@@ -51,7 +56,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 3: Install Python dependencies
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[3/6] Installing Python dependencies...${NC}"
+echo -e "${YELLOW}[3/7] Installing Python dependencies...${NC}"
 "$VENV_PATH/bin/pip" install --upgrade pip -q
 "$VENV_PATH/bin/pip" install -r "$ROOT/namo_core/requirements.txt"
 echo -e "${GREEN}  Dependencies installed.${NC}"
@@ -59,11 +64,11 @@ echo -e "${GREEN}  Dependencies installed.${NC}"
 # ---------------------------------------------------------------------------
 # Step 4: Node.js check + frontend install
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[4/6] Installing frontend dependencies...${NC}"
+echo -e "${YELLOW}[4/7] Installing frontend dependencies...${NC}"
 if command -v node &>/dev/null; then
     NODE_VER=$(node --version)
     echo -e "${GREEN}  Found Node.js: $NODE_VER${NC}"
-    cd "$ROOT/dashboard" && npm install --silent && cd "$ROOT"
+    cd "$ROOT/frontend" && npm install --silent && cd "$ROOT"
     echo -e "${GREEN}  Frontend dependencies installed.${NC}"
 else
     echo -e "${YELLOW}  WARNING: Node.js not found. Dashboard will not be available.${NC}"
@@ -73,7 +78,7 @@ fi
 # ---------------------------------------------------------------------------
 # Step 5: Copy .env.example → .env (if not exists)
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[5/6] Configuring environment...${NC}"
+echo -e "${YELLOW}[5/7] Configuring environment...${NC}"
 if [ -f "$ROOT/.env" ]; then
     echo "  .env already exists — skipping copy."
 else
@@ -85,12 +90,20 @@ fi
 # ---------------------------------------------------------------------------
 # Step 6: Create runtime directories + set permissions
 # ---------------------------------------------------------------------------
-echo -e "${YELLOW}[6/6] Creating runtime directories...${NC}"
+echo -e "${YELLOW}[6/7] Creating runtime directories...${NC}"
 mkdir -p "$ROOT/namo_core/data"
 mkdir -p "$ROOT/backups"
 mkdir -p "$ROOT/logs"
 chmod +x "$ROOT/scripts/"*.sh 2>/dev/null || true
 echo -e "${GREEN}  Runtime directories ready.${NC}"
+
+# ---------------------------------------------------------------------------
+# Step 7: Install MCP Skills
+# ---------------------------------------------------------------------------
+echo -e "${YELLOW}[7/7] Installing MCP Skills...${NC}"
+if command -v npx &>/dev/null; then
+    npx ctx7 skills install /upstash/context7 context7-mcp
+fi
 
 # ---------------------------------------------------------------------------
 # Done
