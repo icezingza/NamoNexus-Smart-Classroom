@@ -205,21 +205,7 @@ alembic downgrade -1      # roll back one step
    - Timeline: ~15-20 mins on GPU-backed Cloud Run (A100 instance)
    - Post-vectorization: Upload to `gs://namo-classroom-models/tripitaka_main/` and update `gcs_assets.py`
 
-2. **Git Commit & Push** (Books 11-22 standardized chunks, metadata, scripts):
-   ```bash
-   git add knowledge/tripitaka_main/chunks/chunk_books_11_22.json \
-           knowledge/tripitaka_main/metadata.json \
-           scripts/fetch_books_11_22_buddhadust.py \
-           scripts/standardize_books_11_22_buddhadust.py \
-           scripts/phase_3_4_automate.py
-   git commit -m "P23: Books 11-22 Integration Phase 1-4 Complete
-   
-   - Phase 1-2: Buddhadust fallback integration (1,186 suttas sample)
-   - Phase 3: Standardization to chunk format (chunk_books_11_22.json)
-   - Phase 4: Metadata integration (books_coverage 45, total_vectors 170,087)
-   - Vectorization: Pending Phase 3b (batch_vectorizer.py on Cloud Run)
-   - Estimated final: 283,861 vectors (Books 1-45 complete)"
-   ```
+2. **Git Commit & Push** — ✅ Done (commit `7baf4ef`, 2026-05-11): 45 files pushed to `main`
 
 ---
 
@@ -312,5 +298,5 @@ python -X utf8 scripts/verify_cloud_assets.py
 | `POSTGRES_MIGRATION.md` | Cloud SQL migration runbook |
 | `Dockerfile` | Cloud Run image — python 3.11-slim, `COPY backend/namo_core/ ./namo_core/`, dynamic PORT/UVICORN_WORKERS |
 | `.dockerignore` | Excludes `knowledge/` (FAISS), `.venv/`, `node_modules/` — keeps image lean |
-| P22 | Local Stability (Watchdog) | ✅ **Complete** — Windows Task Scheduler registered [cite: 2026-05-08] |
+| `scripts/namo_watchdog.ps1` | Watchdog — HTTP health check + tunnel PID monitor; registered in Windows Task Scheduler [cite: 2026-05-08] |
 | `docs/superpowers/plans/2026-05-08-cloud-run-deploy.md` | Full P21 deploy plan — 10 tasks, deploy command included |
