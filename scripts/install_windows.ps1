@@ -19,7 +19,7 @@ Write-Host ""
 # ---------------------------------------------------------------------------
 # Step 1: Python version check
 # ---------------------------------------------------------------------------
-Write-Host "[1/6] Checking Python version..." -ForegroundColor Yellow
+Write-Host "[1/7] Checking Python version..." -ForegroundColor Yellow
 try {
     $pythonVersion = python --version 2>&1
     Write-Host "  Found: $pythonVersion" -ForegroundColor Green
@@ -31,7 +31,7 @@ try {
 # ---------------------------------------------------------------------------
 # Step 2: Create virtual environment
 # ---------------------------------------------------------------------------
-Write-Host "[2/6] Creating Python virtual environment..." -ForegroundColor Yellow
+Write-Host "[2/7] Creating Python virtual environment..." -ForegroundColor Yellow
 $venvPath = Join-Path $Root ".venv"
 if (Test-Path $venvPath) {
     Write-Host "  .venv already exists - skipping creation." -ForegroundColor Gray
@@ -43,7 +43,7 @@ if (Test-Path $venvPath) {
 # ---------------------------------------------------------------------------
 # Step 3: Install Python dependencies
 # ---------------------------------------------------------------------------
-Write-Host "[3/6] Installing Python dependencies..." -ForegroundColor Yellow
+Write-Host "[3/7] Installing Python dependencies..." -ForegroundColor Yellow
 $pip = Join-Path $venvPath "Scripts\pip.exe"
 $requirementsPath = Join-Path $Root "namo_core\requirements.txt"
 & $pip install --upgrade pip -q
@@ -53,7 +53,7 @@ Write-Host "  Dependencies installed." -ForegroundColor Green
 # ---------------------------------------------------------------------------
 # Step 4: Node.js check + frontend install
 # ---------------------------------------------------------------------------
-Write-Host "[4/6] Installing frontend dependencies..." -ForegroundColor Yellow
+Write-Host "[4/7] Installing frontend dependencies..." -ForegroundColor Yellow
 try {
     $nodeVersion = node --version 2>&1
     Write-Host "  Found Node.js: $nodeVersion" -ForegroundColor Green
@@ -70,7 +70,7 @@ try {
 # ---------------------------------------------------------------------------
 # Step 5: Validate .env policy (no automatic creation)
 # ---------------------------------------------------------------------------
-Write-Host "[5/6] Configuring environment..." -ForegroundColor Yellow
+Write-Host "[5/7] Configuring environment..." -ForegroundColor Yellow
 $envFile = Join-Path $Root ".env"
 if (Test-Path $envFile) {
     Write-Host "  .env already exists." -ForegroundColor Gray
@@ -81,7 +81,7 @@ if (Test-Path $envFile) {
 # ---------------------------------------------------------------------------
 # Step 6: Create data directories
 # ---------------------------------------------------------------------------
-Write-Host "[6/6] Creating runtime directories..." -ForegroundColor Yellow
+Write-Host "[6/7] Creating runtime directories..." -ForegroundColor Yellow
 $dirs = @(
     (Join-Path $Root "namo_core\data"),
     (Join-Path $Root "backups"),
@@ -92,6 +92,17 @@ foreach ($dir in $dirs) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         Write-Host "  Created: $dir" -ForegroundColor Green
     }
+}
+
+# ---------------------------------------------------------------------------
+# Step 7: Install MCP Skills
+# ---------------------------------------------------------------------------
+Write-Host "[7/7] Installing MCP Skills..." -ForegroundColor Yellow
+if (Get-Command npx -ErrorAction SilentlyContinue) {
+    npx ctx7 skills install /upstash/context7 context7-mcp
+    Write-Host "  MCP Skills installed successfully." -ForegroundColor Green
+} else {
+    Write-Host "  Skipping MCP install (npx not found)." -ForegroundColor Gray
 }
 
 # ---------------------------------------------------------------------------

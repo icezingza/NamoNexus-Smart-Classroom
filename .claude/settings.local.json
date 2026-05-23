@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\\\\routes\\\\search.ts\"\\).Count; \\(Get-Content \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\search-p26-2-handler.ts\"\\).Count)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName | Format-Table -AutoSize)",
+      "PowerShell(Copy-Item \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\logger-p26-3-bunyan.ts\" \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\\\\utils\\\\logger.ts\")",
+      "PowerShell(Get-Process python | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; $env:PYTHONPATH = \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\"; Start-Process -FilePath \"python\" -ArgumentList \"-m uvicorn namo_core.main:app --host localhost --port 8000\" -WorkingDirectory \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\" -WindowStyle Minimized -RedirectStandardError \"C:\\\\Users\\\\icezi\\\\NamoNexus-Smart-Classroom\\\\backend\\\\startup_err2.log\")"
+    ]
+  }
+}
