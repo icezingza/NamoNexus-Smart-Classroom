@@ -41,8 +41,8 @@ class ClassroomEventLog:
         self.capacity = capacity
         settings = get_settings()
         if settings.redis_url:
-            from namo_core.utils.redis_factory import make_redis_sync
-            self.redis = make_redis_sync()
+            from namo_core.utils.redis_factory import make_redis
+            self.redis = make_redis()
             self.use_redis = True
         else:
             self.use_redis = False

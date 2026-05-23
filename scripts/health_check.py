@@ -45,10 +45,26 @@ RESET = "\033[0m"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def get_auth_token() -> str:
+    try:
+        import os
+        import sys
+        import jwt as pyjwt
+        # Add backend folder to path
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+        from namo_core.config.settings import get_settings
+        settings = get_settings()
+        secret = settings.system_secret
+        token = pyjwt.encode({"sub": "healthcheck"}, secret, algorithm="HS256")
+        return token
+    except Exception:
+        return "NamoSystemBypass2026-HealthCheck"
+
+
 def _get(url: str) -> tuple[int, dict]:
     try:
         req = urllib.request.Request(
-            url, headers={"Authorization": "Bearer NamoSystemBypass2026-HealthCheck"}
+            url, headers={"Authorization": f"Bearer {get_auth_token()}"}
         )
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             body = json.loads(resp.read())
@@ -67,7 +83,7 @@ def _post(url: str, data: dict) -> tuple[int, dict]:
             data=payload,
             headers={
                 "Content-Type": "application/json",
-                "Authorization": "Bearer NamoSystemBypass2026-HealthCheck",
+                "Authorization": f"Bearer {get_auth_token()}",
             },
         )
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
