@@ -18,12 +18,9 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# ---------------------------------------------------------------------------
-# Make namo_core importable when running `alembic` from any CWD.
-# The alembic.ini sits at backend/namo_core/ so adding its parent gives us
-# `import namo_core.*` without installing the package.
-# ---------------------------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Fix: parents[2] is backend/, which allows importing namo_core
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # ---------------------------------------------------------------------------
 # Import settings FIRST so .env is loaded before any model import
